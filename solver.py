@@ -49,7 +49,7 @@ class Solver(object):
         iter_per_epoch = len(train_loader)
         best_val_acc = 0.0
 
-        print('START TRAIN.')
+        print('START TRAINING.')
         ########################################################################
         # The log should like something like:                              #
         #   ...                                                                #
@@ -101,24 +101,8 @@ class Solver(object):
             if len(val_loader):
                 val_losses = []
                 val_scores = []
-                model.eval()
-                for inputs, targets in val_loader:
-                    inputs, targets = Variable(inputs), Variable(targets)
-                    if model.is_cuda:
-                        inputs, targets = inputs.cuda(), targets.cuda()
 
-                    outputs = model.forward(inputs)
-                    loss = self.loss_func(outputs, targets)
-                    val_losses.append(loss.data.cpu().numpy())
-
-                    _, preds = torch.max(outputs, 1)
-
-                    # Only allow images/pixels with target >= 0 e.g. for segmentation
-                    targets_mask = targets >= 0
-                    scores = np.mean((preds == targets)[targets_mask].data.cpu().numpy())
-                    val_scores.append(scores)
-
-                val_acc, val_loss = np.mean(val_scores), np.mean(val_losses)
+                val_acc, val_loss = self.test(model, val_loader)
                 self.val_acc_history.append(val_acc)
                 self.val_loss_history.append(val_loss)
                 if log_nth:
@@ -131,10 +115,13 @@ class Solver(object):
                 if val_acc > best_val_acc:
                     best_val_acc = val_acc
                     self.best_model = model
+            else:
+                self.best_model = model
 
         print('FINISH.\n')
         self.best_model.save(path='models/nn.model')
         self._save_histories()
+        print('\n')
 
     def test(self, model, test_loader):
         """
@@ -144,22 +131,24 @@ class Solver(object):
         - model: model object initialized from a torch.nn.Module
         - test_loader: test data in torch.utils.data.DataLoader
         """
+        test_losses = []
         test_scores = []
         model.eval()
+
         for inputs, targets in test_loader:
             inputs, targets = Variable(inputs), Variable(targets)
             if model.is_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda()
             
             outputs = model.forward(inputs)
+            loss = self.loss_func(outputs, targets)
+            test_losses.append(loss.data.cpu().numpy())
             _, preds = torch.max(outputs, 1)
             targets_mask = targets >= 0
             test_scores.append(np.mean((preds == targets)[targets_mask].data.cpu().numpy()))
             
-        test_acc = np.mean(test_scores)*100
-        print('Test set accuracy: {:.2f}%'.format(test_acc))
-
-        return test_acc
+        test_acc, test_loss = np.mean(test_scores), np.mean(test_losses)
+        return test_acc, test_loss
 
     def _save_histories(self):
         """
@@ -194,7 +183,7 @@ class Solver(object):
         - test_acc: test set accuracy
         """
         f, (ax1, ax2) = plt.subplots(1, 2)
-        f.suptitle('Training histories (test_acc = ' + str(test_acc) + '%)')
+        f.suptitle('Training histories (test_acc = ' + str(test_acc*100) + '%)')
 
         x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
 

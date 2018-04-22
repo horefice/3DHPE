@@ -58,9 +58,10 @@ if args.mnist:
                    ]))
 
 num_train = len(train_data)
+print("DATASET INFO.")
 print("Train & validation size: %i" % (num_train))
 print("Test size: %i" % len(test_data))
-print("Data size: ", train_data[0][0].size(),"\n")
+print("Data dimensions: ", train_data[0][0].size(),"\n")
 
 ## LOAD MODELS & SOLVER
 model = torch.load(args.model) if args.model else MyNN()
@@ -99,7 +100,9 @@ test_loader = torch.utils.data.DataLoader(test_data,
                                           batch_size=args.test_batch_size,
                                           shuffle=False, **kwargs)
 
-test_acc = solver.test(model, test_loader)
+test_acc,_ = solver.test(model, test_loader)
+print('TESTING.')
+print('Test accuracy: {:.2f}%\n'.format(test_acc*100))
 
 ## PLOT TRAINING
 if args.plot:
