@@ -16,20 +16,20 @@ parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
-parser.add_argument('--epochs', type=int, default=1, metavar='N',
+parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                     help='learning rate (default: 0.01)')
 parser.add_argument('--valid-size', type=float, default=0.2, metavar='VAL',
                     help='Validation set size ratio from training set (default: 0.2)')
-parser.add_argument('--mnist', type=bool, default=True, metavar='D',
+parser.add_argument('--mnist', type=bool, default=False, metavar='D',
                     help='mnist for True, other dataset for False (default: False)')
-parser.add_argument('--model', type=str, default='models/nn.model', metavar='M',
+parser.add_argument('--model', type=str, default='', metavar='M',
                     help='use previously saved model')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=100, metavar='N',
-                    help='how many batches to wait before logging training status')
+                    help='how many batches to wait before logging training status (default: 100)')
 
 args = parser.parse_args()
 args.cuda = torch.cuda.is_available()
@@ -64,11 +64,11 @@ print("Data size: ", train_data[0][0].size(),"\n")
 model = torch.load(args.model) if args.model else MyNN()
 if args.cuda:
     model.cuda()
-solver = Solver(optim_args={"lr": args.lr})
+solver = Solver(optim_args={"lr": args.lr},path='models/train_histories.npz')
 
 ## TRAIN
 if args.model:
-	solver.load_histories(path='models/train_histories.npz')
+	solver.load_histories()
 else:
 	indices = list(range(num_train))
 	split = int(np.floor(args.valid_size * num_train))
@@ -101,4 +101,4 @@ test_loader = torch.utils.data.DataLoader(test_data,
 test_acc = solver.test(model, test_loader)
 
 ## PLOT TRAINING
-solver.plot_history(test_acc)
+solver.plot_histories(test_acc)

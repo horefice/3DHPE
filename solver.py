@@ -1,6 +1,7 @@
 import numpy as np
 from random import shuffle
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 import torch
 from torch.autograd import Variable
@@ -158,11 +159,8 @@ class Solver(object):
 
     def _save_histories(self):
         """
-        Save training history with its parameters to the given path. Conventionally the
+        Save training history with its parameters to self.path. Conventionally the
         path should end with "*.npz".
-
-        Inputs:
-        - path: path string
         """
         print('Saving training histories... %s' % self.path)
         np.savez(self.path, train_loss_history=self.train_loss_history,
@@ -170,24 +168,30 @@ class Solver(object):
                         val_loss_history=self.val_loss_history,
                         val_acc_history=self.val_acc_history)
 
-    def load_histories(self, path):
+    def load_histories(self):
         """
-        Load training history with its parameters to the given path. Conventionally the
-        path should end with "*.npy".
-
-        Inputs:
-        - path: path string
+        Load training history with its parameters to self.path. Conventionally the
+        path should end with "*.npz".
         """
         self._reset_histories()
 
-        npzfile = np.load(path)
+        npzfile = np.load(self.path)
         self.train_loss_history = npzfile['train_loss_history']
         self.train_acc_history = npzfile['train_acc_history']
         self.val_acc_history = npzfile['val_acc_history']
         self.val_loss_history = npzfile['val_loss_history']
 
-    def plot_history(self):
+    def plot_histories(self, test_acc='xx.xx'):
+        """
+        Plot losses and accuracies from training and validation. Also plots a 
+        smoothed curve for train_loss.
+
+        Inputs:
+        - test_acc: test set accuracy
+        """
         f, (ax1, ax2) = plt.subplots(1, 2)
+        f.suptitle('Training histories (test_acc = ' + str(test_acc) + '%)')
+        f.gca()
 
         x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
 
@@ -201,12 +205,13 @@ class Solver(object):
         ax1.plot(smoothed, label="train_smoothed")
         ax1.legend()
         ax1.set_ylabel('log(loss)')
-        ax1.set_xlabel('iteration')
+        ax1.set_xlabel('batch')
         
         ax2.plot(self.train_acc_history, label="train", marker='x')        
         ax2.plot(self.val_acc_history, label="validation", marker='d')
         ax2.legend()
-        ax1.set_ylabel('accuracy')
-        ax1.set_xlabel('epoch')
+        ax2.set_ylabel('accuracy')
+        ax2.set_xlabel('epoch')
+        ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
         
         plt.show();
