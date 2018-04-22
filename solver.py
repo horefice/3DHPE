@@ -45,10 +45,9 @@ class Solver(object):
         """
         optim = self.optim(model.parameters(), **self.optim_args)
         self._reset_histories()
+        self.best_model = None
         iter_per_epoch = len(train_loader)
-
-        if torch.cuda.is_available():
-            model.cuda()
+        best_val_acc = 0.0
 
         print('START TRAIN.')
         ########################################################################
@@ -128,7 +127,13 @@ class Solver(object):
                                                                        val_acc,
                                                                        val_loss))
 
+                # Update best model to the one with highest validation set accuracy
+                if val_acc > best_val_acc:
+                    best_val_acc = val_acc
+                    self.best_model = model
+
         print('FINISH.\n')
+        self.best_model.save(path='models/nn.model')
         self._save_histories()
 
     def test(self, model, test_loader):

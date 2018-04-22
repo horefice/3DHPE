@@ -93,7 +93,6 @@ else:
 	                                          **kwargs)
 
 	solver.train(model, train_loader, valid_loader, log_nth=args.log_interval, num_epochs=args.epochs)
-	model.save(path='models/nn.model')
 
 ## TEST
 test_loader = torch.utils.data.DataLoader(test_data,
