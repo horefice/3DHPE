@@ -1,7 +1,6 @@
 import numpy as np
 from random import shuffle
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 
 import torch
 from torch.autograd import Variable
@@ -191,7 +190,6 @@ class Solver(object):
         """
         f, (ax1, ax2) = plt.subplots(1, 2)
         f.suptitle('Training histories (test_acc = ' + str(test_acc) + '%)')
-        f.gca()
 
         x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
 
@@ -207,11 +205,10 @@ class Solver(object):
         ax1.set_ylabel('log(loss)')
         ax1.set_xlabel('batch')
         
-        ax2.plot(self.train_acc_history, label="train", marker='x')        
-        ax2.plot(self.val_acc_history, label="validation", marker='d')
+        ax2.plot(np.arange(1,len(self.train_acc_history)+1),self.train_acc_history, label="train", marker='d')
+        ax2.plot(np.arange(1,len(self.val_acc_history)+1),self.val_acc_history, label="validation", marker='x')
         ax2.legend()
         ax2.set_ylabel('accuracy')
         ax2.set_xlabel('epoch')
-        ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
         
         plt.show();

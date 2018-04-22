@@ -26,6 +26,8 @@ parser.add_argument('--mnist', type=bool, default=False, metavar='D',
                     help='mnist for True, other dataset for False (default: False)')
 parser.add_argument('--model', type=str, default='', metavar='M',
                     help='use previously saved model')
+parser.add_argument('--plot', type=bool, default=False, metavar='M',
+                    help='Plot train and validation histories (default: False)')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=100, metavar='N',
@@ -64,7 +66,7 @@ print("Data size: ", train_data[0][0].size(),"\n")
 model = torch.load(args.model) if args.model else MyNN()
 if args.cuda:
     model.cuda()
-solver = Solver(optim_args={"lr": args.lr},path='models/train_histories.npz')
+solver = Solver(optim_args={"lr": args.lr}, path='models/train_histories.npz')
 
 ## TRAIN
 if args.model:
@@ -101,4 +103,5 @@ test_loader = torch.utils.data.DataLoader(test_data,
 test_acc = solver.test(model, test_loader)
 
 ## PLOT TRAINING
-solver.plot_histories(test_acc)
+if args.plot:
+	solver.plot_histories(test_acc)
