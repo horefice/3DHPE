@@ -1,6 +1,5 @@
 import numpy as np
 from random import shuffle
-import matplotlib.pyplot as plt
 
 import torch
 from torch.autograd import Variable
@@ -13,13 +12,12 @@ class Solver(object):
                          "weight_decay": 0.0}
 
     def __init__(self, optim=torch.optim.Adam, optim_args={},
-                 loss_func=torch.nn.CrossEntropyLoss(), path='models/train_histories.npz'):
+                 loss_func=torch.nn.CrossEntropyLoss()):
         optim_args_merged = self.default_adam_args.copy()
         optim_args_merged.update(optim_args)
         self.optim_args = optim_args_merged
         self.optim = optim
         self.loss_func = loss_func
-        self.path = path
 
         self._reset_histories()
 
@@ -86,8 +84,6 @@ class Solver(object):
                          train_loss))
 
             _, preds = torch.max(outputs, 1)
-
-            # Only allow images/pixels with label >= 0
             targets_mask = targets >= 0
             train_acc = np.mean((preds == targets)[targets_mask].data.cpu().numpy())
             self.train_acc_history.append(train_acc)
@@ -119,9 +115,8 @@ class Solver(object):
                 self.best_model = model
 
         print('FINISH.\n')
-        self.best_model.save(path='models/nn.model')
-        self._save_histories()
-        print('\n')
+        self.best_model.save(path='../models/nn.model')
+        self._save_histories(path='../models/train_histories.npz')
 
     def test(self, model, test_loader):
         """
@@ -150,59 +145,13 @@ class Solver(object):
         test_acc, test_loss = np.mean(test_scores), np.mean(test_losses)
         return test_acc, test_loss
 
-    def _save_histories(self):
+    def _save_histories(self, path="save.npz"):
         """
         Save training history with its parameters to self.path. Conventionally the
         path should end with "*.npz".
         """
-        print('Saving training histories... %s' % self.path)
-        np.savez(self.path, train_loss_history=self.train_loss_history,
+        print('Saving training histories... %s' % path)
+        np.savez(path, train_loss_history=self.train_loss_history,
                         train_acc_history=self.train_acc_history,
                         val_loss_history=self.val_loss_history,
                         val_acc_history=self.val_acc_history)
-
-    def load_histories(self):
-        """
-        Load training history with its parameters to self.path. Conventionally the
-        path should end with "*.npz".
-        """
-        self._reset_histories()
-
-        npzfile = np.load(self.path)
-        self.train_loss_history = npzfile['train_loss_history']
-        self.train_acc_history = npzfile['train_acc_history']
-        self.val_acc_history = npzfile['val_acc_history']
-        self.val_loss_history = npzfile['val_loss_history']
-
-    def plot_histories(self, test_acc='xx.xx'):
-        """
-        Plot losses and accuracies from training and validation. Also plots a 
-        smoothed curve for train_loss.
-
-        Inputs:
-        - test_acc: test set accuracy
-        """
-        f, (ax1, ax2) = plt.subplots(1, 2)
-        f.suptitle('Training histories (test_acc = ' + str(test_acc*100) + '%)')
-
-        x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
-
-        cumsum = np.cumsum(np.insert(self.train_loss_history, 0, 0))
-        N = 100 # Moving average size
-        smoothed = (cumsum[N:] - cumsum[:-N]) / float(N)
-
-        ax1.set_yscale('log')
-        ax1.plot(self.train_loss_history, label="train")
-        ax1.plot(x_epochs,self.val_loss_history, label="validation", marker='x')
-        ax1.plot(smoothed, label="train_smoothed")
-        ax1.legend()
-        ax1.set_ylabel('log(loss)')
-        ax1.set_xlabel('batch')
-        
-        ax2.plot(np.arange(1,len(self.train_acc_history)+1),self.train_acc_history, label="train", marker='d')
-        ax2.plot(np.arange(1,len(self.val_acc_history)+1),self.val_acc_history, label="validation", marker='x')
-        ax2.legend()
-        ax2.set_ylabel('accuracy')
-        ax2.set_xlabel('epoch')
-        
-        plt.show();

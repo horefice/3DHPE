@@ -3,14 +3,17 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
+from torch.utils.data.sampler import SubsetRandomSampler
+from random import shuffle
 
 class DataHandler():
-
-    def __init__(self, path):
+    def __init__(self, path=''):
         self.root_dir_name = os.path.dirname(path)
+        self.image_names = []
 
-        with open(path) as f:
-            self.image_names = f.read().splitlines()
+        if os.path.isfile(path):
+            with open(path) as f:
+                self.image_names = f.read().splitlines()
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -52,3 +55,18 @@ class DataHandler():
         target_labels = torch.from_numpy(target_labels.copy())
 
         return img, target_labels
+
+    def subdivide_dataset(self, size, val_size, seed):
+        num_samples = int(size)
+        indices = list(range(num_samples))
+        split = int(np.floor(val_size * num_samples))
+
+        if shuffle:
+            np.random.seed(seed)
+            np.random.shuffle(indices)
+
+        train_idx, val_idx = indices[split:], indices[:split]
+        train_sampler = SubsetRandomSampler(train_idx)
+        val_sampler = SubsetRandomSampler(val_idx)
+
+        return (train_sampler, val_sampler)
