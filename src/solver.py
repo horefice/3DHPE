@@ -3,7 +3,7 @@ from random import shuffle
 
 import torch
 from torch.autograd import Variable
-
+from viz import Viz
 
 class Solver(object):
     default_adam_args = {"lr": 1e-4,
@@ -12,12 +12,13 @@ class Solver(object):
                          "weight_decay": 0.0}
 
     def __init__(self, optim=torch.optim.Adam, optim_args={},
-                 loss_func=torch.nn.CrossEntropyLoss()):
+                 loss_func=torch.nn.CrossEntropyLoss(), vis=False):
         optim_args_merged = self.default_adam_args.copy()
         optim_args_merged.update(optim_args)
         self.optim_args = optim_args_merged
         self.optim = optim
         self.loss_func = loss_func
+        self.visdom = Viz() if vis else False
 
         self._reset_histories()
 
@@ -41,13 +42,16 @@ class Solver(object):
         - num_epochs: total number of training epochs
         - log_nth: log training accuracy and loss every nth iteration
         """
-        optim = self.optim(model.parameters(), **self.optim_args)
+        optim = self.optim(filter(lambda p: p.requires_grad,model.parameters()), **self.optim_args)
         self._reset_histories()
         self.best_model = None
         iter_per_epoch = len(train_loader)
         best_val_acc = 0.0
 
-        print('START TRAINING.')
+        if self.visdom:
+            iter_plot = self.visdom.create_plot('Iteration', 'Loss', 'Loss per Iteration')
+
+        print('\nSTART TRAINING.')
         ########################################################################
         # The log should like something like:                              #
         #   ...                                                                #
@@ -62,6 +66,8 @@ class Solver(object):
         for epoch in range(num_epochs):
             # TRAINING
             model.train()
+            train_loss = 0
+            train_acc = 0
 
             for i, (inputs, targets) in enumerate(train_loader, 1):
                 inputs, targets = Variable(inputs), Variable(targets)
@@ -70,7 +76,7 @@ class Solver(object):
 
                 optim.zero_grad()
                 outputs = model(inputs)
-                loss = self.loss_func(outputs.view(targets.size(0), -1), targets.view(-1))
+                loss = self.loss_func(outputs, targets)
                 loss.backward()
                 optim.step()
 
@@ -83,10 +89,17 @@ class Solver(object):
                          iter_per_epoch * num_epochs,
                          train_loss))
 
-            _, preds = torch.max(outputs, 1)
-            targets_mask = targets >= 0
-            train_acc = np.mean((preds == targets)[targets_mask].data.cpu().numpy())
-            self.train_acc_history.append(train_acc)
+                    if self.visdom:
+                        self.visdom.update_plot(
+                            x=i + epoch * iter_per_epoch,
+                            y=train_loss,
+                            window=iter_plot,
+                            type_upd="append")
+
+            # _, preds = torch.max(outputs, 1)
+            # targets_mask = targets >= 0
+            # train_acc = np.mean((preds == targets)[targets_mask].data.cpu().numpy())
+            # self.train_acc_history.append(train_acc)
             if log_nth:
                 print('[Epoch %d/%d] TRAIN acc/loss: %.4f/%.4f' % (epoch + 1,
                                                                    num_epochs,
@@ -108,15 +121,15 @@ class Solver(object):
                                                                        val_loss))
 
                 # Update best model to the one with highest validation set accuracy
-                if val_acc > best_val_acc:
+                if val_acc >= best_val_acc:
                     best_val_acc = val_acc
                     self.best_model = model
             else:
                 self.best_model = model
 
-        print('FINISH.\n')
         self.best_model.save(path='../models/nn.model')
         self._save_histories(path='../models/train_histories.npz')
+        print('FINISH.')
 
     def test(self, model, test_loader):
         """
@@ -127,7 +140,7 @@ class Solver(object):
         - test_loader: test data in torch.utils.data.DataLoader
         """
         test_losses = []
-        test_scores = []
+        test_scores = 0
         model.eval()
 
         for inputs, targets in test_loader:
@@ -138,11 +151,12 @@ class Solver(object):
             outputs = model.forward(inputs)
             loss = self.loss_func(outputs, targets)
             test_losses.append(loss.data.cpu().numpy())
-            _, preds = torch.max(outputs, 1)
-            targets_mask = targets >= 0
-            test_scores.append(np.mean((preds == targets)[targets_mask].data.cpu().numpy()))
+
+            diff = (outputs - targets).pow(2).mean()
+            if diff.data.cpu().numpy()[0] < 3500000:
+                test_scores += 1
             
-        test_acc, test_loss = np.mean(test_scores), np.mean(test_losses)
+        test_acc, test_loss = test_scores / len(test_loader), np.mean(test_losses)
         return test_acc, test_loss
 
     def _save_histories(self, path="save.npz"):

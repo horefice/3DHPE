@@ -10,9 +10,6 @@ class Plotter():
         self.val_acc_history = []
         self.val_loss_history = []
 
-        if os.path.isfile(self.path):
-            self.load_histories()
-
     def load_histories(self):
         """
         Load training history with its parameters to self.path. Conventionally the
@@ -56,6 +53,3 @@ class Plotter():
         ax2.set_xlabel('epoch')
         
         plt.show();
-
-if __name__ == '__main__':
-    plotter = Plotter()

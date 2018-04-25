@@ -1,19 +1,27 @@
 import os
 import numpy as np
 import torch
+import scipy.io
+# from pathlib import Path
 from PIL import Image
-from torchvision import transforms
+from torchvision import datasets, transforms
+from torch.autograd import Variable
 from torch.utils.data.sampler import SubsetRandomSampler
 from random import shuffle
 
-class DataHandler():
-    def __init__(self, path=''):
-        self.root_dir_name = os.path.dirname(path)
-        self.image_names = []
-
-        if os.path.isfile(path):
-            with open(path) as f:
-                self.image_names = f.read().splitlines()
+class DataHandler(datasets.ImageFolder):
+    def __init__(self, *args, **kwargs):
+        super(DataHandler, self).__init__(*args, **kwargs)
+        self.targets = scipy.io.loadmat('../../mpi_inf_3dhp/datasets/S1/Seq1/annot.mat')
+            
+        # subj_list = [f for f in self.root_dir_name.glob('*') if f.is_dir()]
+        # for subj in subj_list:
+        #     seq_list = [f for f in Path(subj).glob('*') if f.is_dir()]
+        #     for seq in seq_list:
+        #         for f in Path(seq).glob('test/*0_*.jpg'):
+        #             self.image_names.append(f)
+        #         # mat = scipy.io.loadmat('')
+        #         # self.targets.append(mat['annot2d'][0])
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -30,34 +38,21 @@ class DataHandler():
         else:
             raise TypeError("Invalid argument type.")
 
-    def __len__(self):
-        return len(self.image_names)
+    # def __len__(self):
+    #     return len(self.image_names)
 
     def get_item_from_index(self, index):
         to_tensor = transforms.ToTensor()
-        img_id = self.image_names[index].replace('.bmp', '')
-
-        img = Image.open(os.path.join(self.root_dir_name,
-                                      'images',
-                                      img_id + '.bmp')).convert('RGB')
+        # img = Image.open(array[index]).convert('RGB')
         # center_crop = transforms.CenterCrop(240)
         # img = center_crop(img)
-        img = to_tensor(img)
+        img = to_tensor(super(DataHandler, self).__getitem__(index)[0])
+        target = torch.from_numpy(self.targets['annot3'][0][0][index]).float()
 
-        target = Image.open(os.path.join(self.root_dir_name,
-                                         'targets',
-                                         img_id + '_GT.bmp'))
-        # target = center_crop(target)
-        target = np.array(target, dtype=np.int64)
+        return img, target
 
-        target_labels = 1
-
-        target_labels = torch.from_numpy(target_labels.copy())
-
-        return img, target_labels
-
-    def subdivide_dataset(self, size, val_size, seed):
-        num_samples = int(size)
+    def subdivide_dataset(self, val_size, seed):
+        num_samples = int(len(self))
         indices = list(range(num_samples))
         split = int(np.floor(val_size * num_samples))
 

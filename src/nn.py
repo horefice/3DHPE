@@ -1,48 +1,20 @@
-"""MyNN"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+from torch.autograd import Variable
 
-
+"""MyNN"""
 class MyNN(nn.Module):
     """
-    A PyTorch implementation of a three-layer convolutional network
-    with the following architecture:
-
-    conv - relu - 2x2 max pool - fc - dropout - relu - fc
-
-    The network operates on mini-batches of data that have shape (N, C, H, W)
-    consisting of N images, each with height H and width W and with C input
-    channels.
+    A PyTorch implementation of a basic superclass network.
     """
 
     def __init__(self):
         """
         Initialize a new network.
-
-        Inputs:
-        - input_dim: Tuple (C, H, W) giving size of input data.
-        - num_filters: Number of filters to use in the convolutional layer.
-        - filter_size: Size of filters to use in the convolutional layer.
-        - hidden_dim: Number of units to use in the fully-connected hidden layer-
-        - num_classes: Number of scores to produce from the final affine layer.
-        - stride_conv: Stride for the convolution layer.
-        - stride_pool: Stride for the max pooling layer.
-        - weight_scale: Scale for the convolution weights initialization
-        - pool: The size of the max pooling window.
-        - dropout: Probability of an element to be zeroed.
         """
         super(MyNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
-
-        # model_conv=torchvision.models.resnet50()
-        ## Change the last layer
-        # num_ftrs = model_conv.fc.in_features
-        # model_conv.fc = nn.Linear(num_ftrs, n_class)
 
     def forward(self, x):
         """
@@ -52,13 +24,7 @@ class MyNN(nn.Module):
         Inputs:
         - x: PyTorch input Variable
         """
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
+        return x
 
     def num_flat_features(self, x):
         """
@@ -88,3 +54,44 @@ class MyNN(nn.Module):
         """
         print('Saving model... %s' % path)
         torch.save(self, path)
+
+"""MyNet"""
+class MyNet(MyNN):
+    """
+    A PyTorch implementation of MyNet
+    with the following architecture:
+
+    resnet50 (except last layer) - fc1
+    """
+
+    def __init__(self):
+        """
+        Initialize a new network.
+
+        Inputs:
+        - input_dim: Tuple (C, H, W) giving size of input data.
+        - num_filters: Number of filters to use in the convolutional layer.
+        - filter_size: Size of filters to use in the convolutional layer.
+        - hidden_dim: Number of units to use in the fully-connected hidden layer-
+        - num_classes: Number of scores to produce from the final affine layer.
+        - stride_conv: Stride for the convolution layer.
+        - stride_pool: Stride for the max pooling layer.
+        - weight_scale: Scale for the convolution weights initialization
+        - pool: The size of the max pooling window.
+        - dropout: Probability of an element to be zeroed.
+        """
+        super(MyNet, self).__init__()
+        resnet = models.resnet50(pretrained=True)
+        for param in resnet.parameters():
+            param.requires_grad = False
+        modules = list(resnet.children())[:-1]      # delete the last fc layer.
+        self.resnet = nn.Sequential(*modules)
+        self.fc1 = nn.Linear(32768, 160)
+        self.fc2 = nn.Linear(160, 84)
+
+    def forward(self, x):
+        features = self.resnet(x)
+        features = Variable(features.data)
+        features = features.view(features.size(0), -1)
+        features = F.relu(self.fc1(features))
+        return self.fc2(features)
