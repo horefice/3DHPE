@@ -7,7 +7,7 @@ from torch.autograd import Variable
 """MyNN"""
 class MyNN(nn.Module):
     """
-    A PyTorch implementation of a basic superclass network.
+    A PyTorch implementation of a superclass network.
     """
 
     def __init__(self):
@@ -24,6 +24,7 @@ class MyNN(nn.Module):
         Inputs:
         - x: PyTorch input Variable
         """
+        print("MyNN: Forward method should be overwritten!")
         return x
 
     def num_flat_features(self, x):
@@ -47,13 +48,13 @@ class MyNN(nn.Module):
     def save(self, path):
         """
         Save model with its parameters to the given path. Conventionally the
-        path should end with "*.model".
+        path should end with "*.pth".
 
         Inputs:
         - path: path string
         """
         print('Saving model... %s' % path)
-        torch.save(self, path)
+        torch.save(self.state_dict(), path)
 
 """MyNet"""
 class MyNet(MyNN):

@@ -9,10 +9,10 @@ from plotter import Plotter
 
 ## SETTINGS
 parser = argparse.ArgumentParser(description='MyNet Implementation')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                    help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                    help='input batch size for testing (default: 1000)')
+parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+                    help='input batch size for training (default: 16)')
+parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
+                    help='input batch size for testing (default: 128)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--lr', type=float, default=0.01, metavar='F',
@@ -39,7 +39,7 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed_all(args.seed)
 
-kwargs = {'num_workers': 2, 'pin_memory': True} if args.cuda else {}
+kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
 
 ## LOAD DATA
 train_data = DataHandler('../datasets/train/')
@@ -51,7 +51,9 @@ print("Test size: %i" % len(test_data))
 print("Data dimensions:", train_data[0][0].size())
 
 ## LOAD MODELS & SOLVER
-model = torch.load(args.model, map_location='cpu') if args.model else MyNet()
+model = MyNet()
+if args.model:
+  model.load_state_dict(torch.load(args.model))
 if args.cuda:
   model.cuda()
 solver = Solver(optim_args={"lr": args.lr}, loss_func=torch.nn.MSELoss(), vis=args.visdom)
@@ -74,10 +76,11 @@ if not args.model:
 test_loader = torch.utils.data.DataLoader(test_data,
                                           batch_size=args.test_batch_size,
                                           shuffle=False, **kwargs)
-test_acc,_ = solver.test(model, test_loader)
+test_acc,test_loss = solver.test(model, test_loader)
 
 print('\nTESTING.')
-print('Test accuracy: {:.2f}%\n'.format(test_acc*100))
+print('Test accuracy: {:.2f}%'.format(test_acc*100))
+print('Test loss: {:.2f}'.format(test_loss))
 
 ## PLOT TRAINING
 if args.plot:

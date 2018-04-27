@@ -3,25 +3,30 @@ import torch
 import cv2
 import argparse
 import time
-from imutils.video import FPS, WebcamVideoStream
+from imutils.video import FPS
 from torch.autograd import Variable
+from nn import MyNet
 
 parser = argparse.ArgumentParser(description='Live Demo')
-parser.add_argument('--model', default='../models/nn.model',
+parser.add_argument('--model', default='../models/nn.pth',
                     type=str, help='Trained model path')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 args = parser.parse_args()
-args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 def cv2_demo(net):
     def predict(frame):
-        frame = cv2.resize(frame, (320, 320)).astype(np.float32)
-        frame = frame.astype(np.float32)
+        frame = cv2.resize(frame, (320, 320))
 
-        x = torch.from_numpy(frame).permute(2,0,1)
+        x = torch.from_numpy(frame.astype(np.float32)).permute(2,0,1)
         x = Variable(x.unsqueeze(0))
-        y = net(x).data
+        if cuda:
+            x.cuda()
+
+        time1 = time.time()
+        y = net.forward(x)
+        time2 = time.time()
+        print('the function took {:.3f} ms'.format((time2-time1)*1000.0))
 
         # Plot joints!
 
@@ -29,13 +34,12 @@ def cv2_demo(net):
 
     # start video stream thread, allow buffer to fill
     print("[INFO] starting threaded video stream...")
-    stream = WebcamVideoStream(src=0).start()  # default camera
-    time.sleep(2.0)
-    # start fps timer
+    cap = cv2.VideoCapture(0)  # default camera
+
     # loop over frames from the video file stream
     while True:
         # grab next frame
-        frame = stream.read()
+        _, frame = cap.read()
         key = cv2.waitKey(1) & 0xFF
 
         # update FPS counter
@@ -55,10 +59,13 @@ def cv2_demo(net):
 
 
 if __name__ == '__main__':
-    net = torch.load(args.model, map_location='cpu')
-    if args.cuda:
-      net.cuda()
+    cuda = not args.no_cuda and torch.cuda.is_available()
 
+    net = MyNet()
+    net.load_state_dict(torch.load(args.model))
+    if cuda:
+        net.cuda()
+    
     fps = FPS().start()
     cv2_demo(net.eval())
     fps.stop()

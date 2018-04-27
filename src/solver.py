@@ -127,7 +127,7 @@ class Solver(object):
             else:
                 self.best_model = model
 
-        self.best_model.save(path='../models/nn.model')
+        self.best_model.save(path='../models/nn.pth')
         self._save_histories(path='../models/train_histories.npz')
         print('FINISH.')
 
@@ -153,7 +153,7 @@ class Solver(object):
             test_losses.append(loss.data.cpu().numpy())
 
             diff = (outputs - targets).pow(2).mean()
-            if diff.data.cpu().numpy()[0] < 3500000:
+            if diff.data.cpu().numpy()[0] < 35000:
                 test_scores += 1
             
         test_acc, test_loss = test_scores / len(test_loader), np.mean(test_losses)

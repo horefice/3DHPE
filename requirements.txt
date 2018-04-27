@@ -1,0 +1,8 @@
+numpy
+torch
+torchvision
+matplotlib
+visdom
+imutils
+opencv-python
+scipy
