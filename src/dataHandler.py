@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import torch
 import scipy.io
@@ -47,7 +46,7 @@ class DataHandler(datasets.ImageFolder):
         # center_crop = transforms.CenterCrop(240)
         # img = center_crop(img)
         img = to_tensor(super(DataHandler, self).__getitem__(index)[0])
-        target = torch.from_numpy(self.targets['annot3'][0][0][index]).float()
+        target = torch.from_numpy(self.targets['univ_annot3'][0][0][index]).float()
 
         return img, target
 

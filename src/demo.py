@@ -3,34 +3,98 @@ import torch
 import cv2
 import argparse
 import time
+import scipy.io
+import matplotlib.pyplot as plt
+from PIL import Image
+from torchvision import transforms
+from mpl_toolkits.mplot3d import Axes3D
 from imutils.video import FPS
 from torch.autograd import Variable
 from nn import MyNet
 
-parser = argparse.ArgumentParser(description='Live Demo')
+parser = argparse.ArgumentParser(description='Demo')
 parser.add_argument('--model', default='../models/nn.pth',
                     type=str, help='Trained model path')
+parser.add_argument('--live', action='store_true', default=False,
+                    help='Switch to live demo mode')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 args = parser.parse_args()
 
-def cv2_demo(net):
-    def predict(frame):
-        frame = cv2.resize(frame, (320, 320))
 
-        x = torch.from_numpy(frame.astype(np.float32)).permute(2,0,1)
-        x = Variable(x.unsqueeze(0))
-        if cuda:
-            x.cuda()
+def predict(frame):
+    x = torch.from_numpy(np.array(frame)).permute(2,0,1).float()
+    x = Variable(x.unsqueeze(0))
+    if cuda:
+        x.cuda()
 
-        time1 = time.time()
-        y = net.forward(x)
-        time2 = time.time()
-        print('the function took {:.3f} ms'.format((time2-time1)*1000.0))
+    #start = time.time()
+    y = net.forward(x).data.numpy()
+    #print('the function took {:.2f} ms'.format((time.time()-start)*1000.0))
 
-        # Plot joints!
+    return y
 
-        return frame
+def plot(img, target):
+    y = predict(img)
+
+    f = plt.figure()
+    ax1 = f.add_subplot(131)
+    ax2 = f.add_subplot(132, projection='3d')
+    ax3 = f.add_subplot(133, projection='3d')
+    f.suptitle('Frame, Ground Truth and Prediction')
+
+    target = (target+1024)/6.4
+
+#   all_joint_names = {'spine3', 'spine4', 'spine2', 'spine', 'pelvis', ...     %5       
+#         'neck', 'head', 'head_top', 'left_clavicle', 'left_shoulder', 'left_elbow', ... %11
+#        'left_wrist', 'left_hand',  'right_clavicle', 'right_shoulder', 'right_elbow', 'right_wrist', ... %17
+#        'right_hand', 'left_hip', 'left_knee', 'left_ankle', 'left_foot', 'left_toe', ...        %23   
+#        'right_hip' , 'right_knee', 'right_ankle', 'right_foot', 'right_toe'}; 
+#         joint_parents_o1 = [3, 1, 4, 5, 5, 2, 6, 7, 6, 9, 10, 11, 12, 6, 14, 15, 16, 17, 5, 19, 20, 21, 22, 5, 24, 25, 26, 27 ];
+#         joint_parents_o2 = [4, 3, 5, 5, 5, 1, 2, 6, 2, 6, 9, 10, 11, 2, 6, 14, 15, 16, 4, 5, 19, 20, 21, 4, 5, 24, 25, 26];
+
+    full_lines = [[1,0,'b'],[0,2,'b'],[2,3,'b'],[3,4,'b'], #spine
+            [1,5,'b'],[5,6,'b'],[6,7,'b'], #head
+            [5,9,'g'],[9,10,'g'],[10,11,'g'],[11,12,'g'], #left arm
+            [5,14,'r'],[14,15,'r'],[15,16,'r'],[16,17,'r'], #right arm
+            [4,18,'g'],[18,19,'g'],[19,20,'g'],[20,21,'g'], #left lef
+            [4,23,'r'],[23,24,'r'],[24,25,'r'],[25,26,'r']] #right leg
+    lines = [[4,6,'b'], # pelvis-head
+            [5,9,'g'],[9,10,'g'],[10,12,'g'], #left arm
+            [5,14,'r'],[14,15,'r'],[15,17,'r'], #right arm
+            [4,18,'g'],[18,19,'g'],[19,21,'g'], #left lef
+            [4,23,'r'],[23,24,'r'],[24,26,'r']] #right leg
+    joints = [4,6,12,17,21,26]
+
+    ax1.imshow(img)
+
+    for line in lines:
+        i1 = line[0]*3
+        i2 = line[1]*3
+        m = line[2]
+        ax2.plot([target[i1],target[i2]],
+                [target[i1+1],target[i2+1]],
+                [target[i1+2],target[i2+2]], m)
+        ax3.plot([y[0,i1],y[0,i2]],
+                [y[0,i1+1],y[0,i2+1]],
+                [y[0,i1+2],y[0,i2+2]], m)
+    for joint in joints:
+        i = joint*3
+        ax2.plot([target[i]],[target[i+1]],[target[i+2]], 'o')
+        ax3.plot([y[0,i]],[y[0,i+1]],[y[0,i+2]], 'o')
+
+    ax2.set_xlabel('X')
+    ax2.set_ylabel('Y')
+    ax2.set_zlabel('Z')
+    ax2.view_init(-90,-90)
+    ax3.set_xlabel('X')
+    ax3.set_ylabel('Y')
+    ax3.set_zlabel('Z')
+    ax3.view_init(-90,-90)
+
+    plt.show();
+
+def demo_live():
 
     # start video stream thread, allow buffer to fill
     print("[INFO] starting threaded video stream...")
@@ -41,10 +105,13 @@ def cv2_demo(net):
         # grab next frame
         _, frame = cap.read()
         key = cv2.waitKey(1) & 0xFF
+        frame = cv2.resize(frame, (320, 320))
 
         # update FPS counter
         fps.update()
-        frame = predict(frame)
+        y = predict(frame)
+
+        # Add Joints on top
 
         # keybindings for display
         if key == ord('p'):  # pause
@@ -57,21 +124,31 @@ def cv2_demo(net):
         if key == 27:  # exit
             break
 
-
 if __name__ == '__main__':
     cuda = not args.no_cuda and torch.cuda.is_available()
 
     net = MyNet()
     net.load_state_dict(torch.load(args.model))
+    net.eval()
     if cuda:
         net.cuda()
     
-    fps = FPS().start()
-    cv2_demo(net.eval())
-    fps.stop()
+    if args.live:
+        fps = FPS().start()
+        demo_live()
+        fps.stop()
 
-    print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-    print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
-    # cleanup
-    cv2.destroyAllWindows()
+        # cleanup
+        cv2.destroyAllWindows()
+
+    else:
+        img = Image.open('../../mpi_inf_3dhp/datasets/S1/Seq1/test1/cam_0_0001.jpg', 'r')
+        
+        mat = scipy.io.loadmat('../../mpi_inf_3dhp/datasets/S1/Seq1/annot.mat')
+        target = mat['annot3'][0][0][0]
+
+        plot(img, target)
+
