@@ -1,3 +1,7 @@
+# Ignore warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 import numpy as np
 import argparse
 import torch
@@ -5,7 +9,7 @@ import torch
 from nn import MyNet
 from solver import Solver
 from dataHandler import DataHandler
-from plotter import Plotter
+from utils import Plotter
 
 ## SETTINGS
 parser = argparse.ArgumentParser(description='MyNet Implementation')

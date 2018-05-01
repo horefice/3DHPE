@@ -43,6 +43,7 @@ class Solver(object):
         - log_nth: log training accuracy and loss every nth iteration
         """
         optim = self.optim(filter(lambda p: p.requires_grad,model.parameters()), **self.optim_args)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim)
         self._reset_histories()
         self.best_model = None
         iter_per_epoch = len(train_loader)
@@ -119,6 +120,9 @@ class Solver(object):
                                                                        num_epochs,
                                                                        val_acc,
                                                                        val_loss))
+
+                # Reduce LR progressively
+                scheduler.step(val_loss)
 
                 # Update best model to the one with highest validation set accuracy
                 if val_acc >= best_val_acc:

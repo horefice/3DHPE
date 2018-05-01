@@ -2,6 +2,7 @@ argparse
 numpy
 torch
 torchvision
+h5py
 matplotlib
 visdom
 imutils

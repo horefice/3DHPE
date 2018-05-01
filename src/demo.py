@@ -1,9 +1,13 @@
+# Ignore warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 import numpy as np
 import torch
 import cv2
 import argparse
 import time
-import scipy.io
+import h5py
 import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms
@@ -23,27 +27,41 @@ args = parser.parse_args()
 
 
 def predict(frame):
-    x = torch.from_numpy(np.array(frame)).permute(2,0,1).float()
+    x = torch.from_numpy(np.array(frame)).permute(2,0,1).float() / 256
     x = Variable(x.unsqueeze(0))
     if cuda:
         x.cuda()
 
     #start = time.time()
-    y = net.forward(x).data.numpy()
-    #print('the function took {:.2f} ms'.format((time.time()-start)*1000.0))
+    y = net.forward(x).data.numpy()[0]
+    #end = time.time()
+    #print('the function took {:.2f} ms'.format((end-start)*1000.0))
 
     return y
 
-def plot(img, target):
-    y = predict(img)
+def draw_skeleton(fig, target, lines=[], joints=[]):
+    for line in lines:
+        i1 = line[0]*3
+        i2 = line[1]*3
+        m = line[2]
+        fig.plot([target[i1],target[i2]],
+                [target[i1+1],target[i2+1]],
+                [target[i1+2],target[i2+2]], m)
+    for joint in joints:
+        i = joint*3
+        fig.plot([target[i]],[target[i+1]],[target[i+2]], 'o')
 
+    fig.set_xlabel('X')
+    fig.set_ylabel('Y')
+    fig.set_zlabel('Z')
+    fig.view_init(-90,-90)
+
+def create_plot(img, target=[]):
     f = plt.figure()
-    ax1 = f.add_subplot(131)
-    ax2 = f.add_subplot(132, projection='3d')
-    ax3 = f.add_subplot(133, projection='3d')
     f.suptitle('Frame, Ground Truth and Prediction')
 
-    target = (target+1024)/6.4
+    ax1 = f.add_subplot(131)
+    ax1.imshow(img)
 
 #   all_joint_names = {'spine3', 'spine4', 'spine2', 'spine', 'pelvis', ...     %5       
 #         'neck', 'head', 'head_top', 'left_clavicle', 'left_shoulder', 'left_elbow', ... %11
@@ -53,7 +71,7 @@ def plot(img, target):
 #         joint_parents_o1 = [3, 1, 4, 5, 5, 2, 6, 7, 6, 9, 10, 11, 12, 6, 14, 15, 16, 17, 5, 19, 20, 21, 22, 5, 24, 25, 26, 27 ];
 #         joint_parents_o2 = [4, 3, 5, 5, 5, 1, 2, 6, 2, 6, 9, 10, 11, 2, 6, 14, 15, 16, 4, 5, 19, 20, 21, 4, 5, 24, 25, 26];
 
-    full_lines = [[1,0,'b'],[0,2,'b'],[2,3,'b'],[3,4,'b'], #spine
+    all_lines = [[1,0,'b'],[0,2,'b'],[2,3,'b'],[3,4,'b'], #spine
             [1,5,'b'],[5,6,'b'],[6,7,'b'], #head
             [5,9,'g'],[9,10,'g'],[10,11,'g'],[11,12,'g'], #left arm
             [5,14,'r'],[14,15,'r'],[15,16,'r'],[16,17,'r'], #right arm
@@ -66,31 +84,15 @@ def plot(img, target):
             [4,23,'r'],[23,24,'r'],[24,26,'r']] #right leg
     joints = [4,6,12,17,21,26]
 
-    ax1.imshow(img)
 
-    for line in lines:
-        i1 = line[0]*3
-        i2 = line[1]*3
-        m = line[2]
-        ax2.plot([target[i1],target[i2]],
-                [target[i1+1],target[i2+1]],
-                [target[i1+2],target[i2+2]], m)
-        ax3.plot([y[0,i1],y[0,i2]],
-                [y[0,i1+1],y[0,i2+1]],
-                [y[0,i1+2],y[0,i2+2]], m)
-    for joint in joints:
-        i = joint*3
-        ax2.plot([target[i]],[target[i+1]],[target[i+2]], 'o')
-        ax3.plot([y[0,i]],[y[0,i+1]],[y[0,i+2]], 'o')
+    if len(target):
+        ax2 = f.add_subplot(132, projection='3d')
+        target = (target+1024)/6.4
+        draw_skeleton(ax2, target, lines, joints)
 
-    ax2.set_xlabel('X')
-    ax2.set_ylabel('Y')
-    ax2.set_zlabel('Z')
-    ax2.view_init(-90,-90)
-    ax3.set_xlabel('X')
-    ax3.set_ylabel('Y')
-    ax3.set_zlabel('Z')
-    ax3.view_init(-90,-90)
+    ax3 = f.add_subplot(133, projection='3d')
+    y = predict(img)
+    draw_skeleton(ax3, y, lines, joints)
 
     plt.show();
 
@@ -99,6 +101,7 @@ def demo_live():
     # start video stream thread, allow buffer to fill
     print("[INFO] starting threaded video stream...")
     cap = cv2.VideoCapture(0)  # default camera
+    frame = 0
 
     # loop over frames from the video file stream
     while True:
@@ -109,9 +112,7 @@ def demo_live():
 
         # update FPS counter
         fps.update()
-        y = predict(frame)
-
-        # Add Joints on top
+        # y = predict(frame)
 
         # keybindings for display
         if key == ord('p'):  # pause
@@ -121,8 +122,12 @@ def demo_live():
                 if key2 == ord('p'):  # resume
                     break
         cv2.imshow('frame', frame)
+
         if key == 27:  # exit
+            cap.release()
             break
+
+    return frame
 
 if __name__ == '__main__':
     cuda = not args.no_cuda and torch.cuda.is_available()
@@ -143,12 +148,9 @@ if __name__ == '__main__':
 
         # cleanup
         cv2.destroyAllWindows()
-
     else:
-        img = Image.open('../../mpi_inf_3dhp/datasets/S1/Seq1/test1/cam_0_0001.jpg', 'r')
-        
-        mat = scipy.io.loadmat('../../mpi_inf_3dhp/datasets/S1/Seq1/annot.mat')
-        target = mat['annot3'][0][0][0]
+        img = Image.open('../datasets/train/S1/S1_Seq1_0_0001.jpg', 'r')        
+        target = h5py.File('../datasets/annot.h5', 'r')["S1"]["annot3_0"][0]
 
-        plot(img, target)
+        create_plot(img, target)
 

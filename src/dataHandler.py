@@ -1,7 +1,6 @@
 import numpy as np
 import torch
-import scipy.io
-# from pathlib import Path
+import h5py
 from PIL import Image
 from torchvision import datasets, transforms
 from torch.autograd import Variable
@@ -11,17 +10,8 @@ from random import shuffle
 class DataHandler(datasets.ImageFolder):
     def __init__(self, *args, **kwargs):
         super(DataHandler, self).__init__(*args, **kwargs)
-        self.targets = scipy.io.loadmat('../../mpi_inf_3dhp/datasets/S1/Seq1/annot.mat')
+        self.targets = h5py.File('../datasets/annot.h5')
             
-        # subj_list = [f for f in self.root_dir_name.glob('*') if f.is_dir()]
-        # for subj in subj_list:
-        #     seq_list = [f for f in Path(subj).glob('*') if f.is_dir()]
-        #     for seq in seq_list:
-        #         for f in Path(seq).glob('test/*0_*.jpg'):
-        #             self.image_names.append(f)
-        #         # mat = scipy.io.loadmat('')
-        #         # self.targets.append(mat['annot2d'][0])
-
     def __getitem__(self, key):
         if isinstance(key, slice):
             # get the start, stop, and step from the slice
@@ -46,11 +36,11 @@ class DataHandler(datasets.ImageFolder):
         # center_crop = transforms.CenterCrop(240)
         # img = center_crop(img)
         img = to_tensor(super(DataHandler, self).__getitem__(index)[0])
-        target = torch.from_numpy(self.targets['univ_annot3'][0][0][index]).float()
+        target = torch.from_numpy(self.targets["S1"]['annot3_0'][index]).float()
 
         return img, target
 
-    def subdivide_dataset(self, val_size, seed):
+    def subdivide_dataset(self, val_size, seed=1):
         num_samples = int(len(self))
         indices = list(range(num_samples))
         split = int(np.floor(val_size * num_samples))
