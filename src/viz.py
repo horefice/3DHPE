@@ -8,18 +8,20 @@ class Viz():
         self.viz = visdom.Visdom(port=8099)
 
         # self.viz.close(None) #Close all previously
-        self.create_notepad()
+        # self.create_notepad()
 
-    def create_plot(self, xlabel, ylabel, title):
+    def create_plot(self, xlabel, ylabel, title, opts_dict):
+        options = dict(xlabel=xlabel,
+                ylabel=ylabel,
+                title=title + time.strftime("(%d.%m @ %H:%M:%S)"))
+        options.update(opts_dict)
+        
         return self.viz.line(
             X=torch.zeros(1).cpu(),
             Y=torch.zeros(1).cpu(),
-            opts=dict(
-                xlabel=xlabel,
-                ylabel=ylabel,
-                title=title + time.strftime("(%d.%m @ %H:%M:%S)")))
+            opts=options)
 
-    def update_plot(self, x, y, window, type_upd, **kwargs):
+    def update_plot(self, x, y, window, type_upd):
         self.viz.line(
             X=np.array([x]),
             Y=np.array([y]),

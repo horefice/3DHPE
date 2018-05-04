@@ -13,14 +13,14 @@ from utils import Plotter
 
 ## SETTINGS
 parser = argparse.ArgumentParser(description='MyNet Implementation')
-parser.add_argument('--batch-size', type=int, default=16, metavar='N',
-                    help='input batch size for training (default: 16)')
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+                    help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
                     help='input batch size for testing (default: 128)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='F',
-                    help='learning rate (default: 0.01)')
+parser.add_argument('--lr', type=float, default=1e-3, metavar='F',
+                    help='learning rate (default: 1e-3)')
 parser.add_argument('--val-size', type=float, default=0.2, metavar='F',
                     help='Validation set size ratio from training set (default: 0.2)')
 parser.add_argument('--model', type=str, default='', metavar='S',
@@ -43,7 +43,7 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed_all(args.seed)
 
-kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
+kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
 ## LOAD DATA
 train_data = DataHandler('../datasets/train/')

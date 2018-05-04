@@ -1,5 +1,6 @@
 import numpy as np
 from random import shuffle
+import time
 
 import torch
 from torch.autograd import Variable
@@ -27,7 +28,6 @@ class Solver(object):
         Resets train and val histories for the accuracy and the loss.
         """
         self.train_loss_history = []
-        self.train_acc_history = []
         self.val_acc_history = []
         self.val_loss_history = []
 
@@ -50,17 +50,17 @@ class Solver(object):
         best_val_acc = 0.0
 
         if self.visdom:
-            iter_plot = self.visdom.create_plot('Iteration', 'Loss', 'Loss per Iteration')
+            iter_plot = self.visdom.create_plot('Epoch', 'Loss', 'Train Loss', {'ytype':'log'})
 
         print('\nSTART TRAINING.')
         ########################################################################
-        # The log should like something like:                              #
+        # The log should like something like:                                  #
         #   ...                                                                #
         #   [Iteration 700/4800] TRAIN loss: 1.452                             #
         #   [Iteration 800/4800] TRAIN loss: 1.409                             #
         #   [Iteration 900/4800] TRAIN loss: 1.374                             #
-        #   [Epoch 1/5] TRAIN acc/loss: 0.560/1.374                            #
-        #   [Epoch 1/5] VAL   acc/loss: 0.539/1.310                            #
+        #   [Epoch 1/5] TRAIN   loss: 0.560/1.374                              #
+        #   [Epoch 1/5] VAL acc/loss: 0.539/1.310                              #
         #   ...                                                                #
         ########################################################################
 
@@ -68,7 +68,7 @@ class Solver(object):
             # TRAINING
             model.train()
             train_loss = 0
-            train_acc = 0
+            last_time = time.time()
 
             for i, (inputs, targets) in enumerate(train_loader, 1):
                 inputs, targets = Variable(inputs), Variable(targets)
@@ -92,31 +92,24 @@ class Solver(object):
 
                     if self.visdom:
                         self.visdom.update_plot(
-                            x=i + epoch * iter_per_epoch,
+                            x=epoch + i / iter_per_epoch,
                             y=train_loss,
                             window=iter_plot,
                             type_upd="append")
 
-            # _, preds = torch.max(outputs, 1)
-            # targets_mask = targets >= 0
-            # train_acc = np.mean((preds == targets)[targets_mask].data.cpu().numpy())
-            # self.train_acc_history.append(train_acc)
             if log_nth:
-                print('[Epoch %d/%d] TRAIN acc/loss: %.4f/%.4f' % (epoch + 1,
-                                                                   num_epochs,
-                                                                   train_acc,
-                                                                   train_loss))
-            
+                print('[Epoch %d/%d] TRAIN   loss: %.4f (%d ms)' % (epoch + 1,
+                                                           num_epochs,
+                                                           train_loss,
+                                                           (time.time()-last_time)*1000.0))
+
             # VALIDATION
             if len(val_loader):
-                val_losses = []
-                val_scores = []
-
                 val_acc, val_loss = self.test(model, val_loader)
                 self.val_acc_history.append(val_acc)
                 self.val_loss_history.append(val_loss)
                 if log_nth:
-                    print('[Epoch %d/%d] VAL   acc/loss: %.4f/%.4f' % (epoch + 1,
+                    print('[Epoch %d/%d] VAL acc/loss: %.4f/%.4f' % (epoch + 1,
                                                                        num_epochs,
                                                                        val_acc,
                                                                        val_loss))
@@ -156,9 +149,9 @@ class Solver(object):
             loss = self.loss_func(outputs, targets)
             test_losses.append(loss.data.cpu().numpy())
 
-            diff = (outputs - targets).pow(2).mean()
-            if diff.data.cpu().numpy()[0] < 35000:
-                test_scores += 1
+            # diff = (outputs - targets).pow(2).mean()
+            # if diff.data.cpu().numpy() < 35000:
+            #     test_scores += 1
             
         test_acc, test_loss = test_scores / len(test_loader), np.mean(test_losses)
         return test_acc, test_loss
@@ -170,6 +163,5 @@ class Solver(object):
         """
         print('Saving training histories... %s' % path)
         np.savez(path, train_loss_history=self.train_loss_history,
-                        train_acc_history=self.train_acc_history,
                         val_loss_history=self.val_loss_history,
                         val_acc_history=self.val_acc_history)

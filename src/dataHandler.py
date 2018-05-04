@@ -32,11 +32,14 @@ class DataHandler(datasets.ImageFolder):
 
     def get_item_from_index(self, index):
         to_tensor = transforms.ToTensor()
-        # img = Image.open(array[index]).convert('RGB')
-        # center_crop = transforms.CenterCrop(240)
-        # img = center_crop(img)
         img = to_tensor(super(DataHandler, self).__getitem__(index)[0])
-        target = torch.from_numpy(self.targets["S1"]['annot3_0'][index]).float()
+        # center_crop = transforms.CenterCrop(320)
+        # img = center_crop(img)
+
+        path = self.imgs[index][0]
+        infos = ('.').join(path.split('/')[-1].split('.')[:-1]).split('_') #[SX,SeqX,Cam,frame]
+        target = self.targets[infos[0]]['annot3_'+infos[1]+'_'+infos[2]][int(infos[3])-1]
+        target = torch.from_numpy(target).float()
 
         return img, target
 

@@ -23,7 +23,6 @@ class Plotter():
     def __init__(self, path='../models/train_histories.npz'):
         self.path = path
         self.train_loss_history = []
-        self.train_acc_history = []
         self.val_acc_history = []
         self.val_loss_history = []
 
@@ -34,7 +33,6 @@ class Plotter():
         """
         npzfile = np.load(self.path)
         self.train_loss_history = npzfile['train_loss_history']
-        self.train_acc_history = npzfile['train_acc_history']
         self.val_acc_history = npzfile['val_acc_history']
         self.val_loss_history = npzfile['val_loss_history']
 
@@ -52,7 +50,7 @@ class Plotter():
         x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
 
         cumsum = np.cumsum(np.insert(self.train_loss_history, 0, 0))
-        N = 100 # Moving average size
+        N = 10 # Moving average size
         smoothed = (cumsum[N:] - cumsum[:-N]) / float(N)
 
         ax1.set_yscale('log')
@@ -63,7 +61,6 @@ class Plotter():
         ax1.set_ylabel('log(loss)')
         ax1.set_xlabel('batch')
         
-        ax2.plot(np.arange(1,len(self.train_acc_history)+1),self.train_acc_history, label="train", marker='d')
         ax2.plot(np.arange(1,len(self.val_acc_history)+1),self.val_acc_history, label="validation", marker='x')
         ax2.legend()
         ax2.set_ylabel('accuracy')
