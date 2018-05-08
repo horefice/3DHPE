@@ -13,18 +13,20 @@ from utils import Plotter
 
 ## SETTINGS
 parser = argparse.ArgumentParser(description='MyNet Implementation')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('-b', '--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
                     help='input batch size for testing (default: 128)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
-parser.add_argument('--lr', type=float, default=1e-3, metavar='F',
+parser.add_argument('--lr', '--learning-rate', type=float, default=1e-3, metavar='F',
                     help='learning rate (default: 1e-3)')
 parser.add_argument('--val-size', type=float, default=0.2, metavar='F',
                     help='Validation set size ratio from training set (default: 0.2)')
 parser.add_argument('--model', type=str, default='', metavar='S',
                     help='use previously saved model')
+parser.add_argument('--resume', action='store_true', default=False,
+                    help='resume training from model')
 parser.add_argument('--plot', type=bool, default=False, metavar='B',
                     help='Plot train and validation histories (default: False)')
 parser.add_argument('--visdom', action='store_true', default=False,
@@ -40,10 +42,10 @@ args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
+kwargs = {}
 if args.cuda:
-    torch.cuda.manual_seed_all(args.seed)
-
-kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
+  torch.cuda.manual_seed_all(args.seed)
+  kwargs = {'num_workers': 1, 'pin_memory': True}
 
 ## LOAD DATA
 train_data = DataHandler('../datasets/train/')
@@ -56,14 +58,21 @@ print("Data dimensions:", train_data[0][0].size())
 
 ## LOAD MODELS & SOLVER
 model = MyNet()
+checkpoint = {}
 if args.model:
-  model.load_state_dict(torch.load(args.model))
+  checkpoint = torch.load(args.model)
+  model.load_state_dict(checkpoint['state_dict'])
 if args.cuda:
   model.cuda()
-solver = Solver(optim_args={"lr": args.lr}, loss_func=torch.nn.MSELoss(), vis=args.visdom)
+solver = Solver(optim_args={"lr": args.lr},
+                loss_func=torch.nn.MSELoss(), vis=args.visdom)
 
 ## TRAIN
-if not args.model:
+if args.resume and not args.model:
+  print("\n=> No model to resume training. Double-check arguments!")
+  quit()
+
+if (not args.model) ^ args.resume:
   train_sampler, val_sampler = train_data.subdivide_dataset(args.val_size, args.seed)
 
   train_loader = torch.utils.data.DataLoader(train_data,
@@ -71,16 +80,17 @@ if not args.model:
                                             batch_size=args.batch_size,
                                             **kwargs)
   val_loader = torch.utils.data.DataLoader(train_data,
-                                            sampler=val_sampler,
-                                            batch_size=args.batch_size,
-                                            **kwargs)
-  solver.train(model, train_loader, val_loader, log_nth=args.log_interval, num_epochs=args.epochs)
+                                          sampler=val_sampler,
+                                          batch_size=args.batch_size,
+                                          **kwargs)
+  solver.train(model, train_loader, val_loader, log_nth=args.log_interval,
+              num_epochs=args.epochs, checkpoint=checkpoint)
 
 ## TEST
 test_loader = torch.utils.data.DataLoader(test_data,
                                           batch_size=args.test_batch_size,
                                           shuffle=False, **kwargs)
-test_acc,test_loss = solver.test(model, test_loader)
+test_acc, test_loss = solver.test(model, test_loader)
 
 print('\nTESTING.')
 print('Test accuracy: {:.2f}%'.format(test_acc*100))

@@ -132,7 +132,7 @@ if __name__ == '__main__':
     cuda = not args.no_cuda and torch.cuda.is_available()
 
     net = MyNet()
-    net.load_state_dict(torch.load(args.model))
+    net.load_state_dict(torch.load(args.model)['state_dict'])
     net.eval()
     if cuda:
         net.cuda()

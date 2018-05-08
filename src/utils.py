@@ -20,7 +20,7 @@ class AverageMeter(object):
 
 class Plotter():
     """Loads and plots training history"""
-    def __init__(self, path='../models/train_histories.npz'):
+    def __init__(self, path='../models/train_history.npz'):
         self.path = path
         self.train_loss_history = []
         self.val_acc_history = []
@@ -36,7 +36,7 @@ class Plotter():
         self.val_acc_history = npzfile['val_acc_history']
         self.val_loss_history = npzfile['val_loss_history']
 
-    def plot_histories(self, extra_title=''):
+    def plot_histories(self, extra_title='', n_smoothed=0):
         """
         Plot losses and accuracies from training and validation. Also plots a 
         smoothed curve for train_loss.
@@ -50,15 +50,16 @@ class Plotter():
         x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
 
         cumsum = np.cumsum(np.insert(self.train_loss_history, 0, 0))
-        N = 10 # Moving average size
+        N = n_smoothed # Moving average size
         smoothed = (cumsum[N:] - cumsum[:-N]) / float(N)
 
         ax1.set_yscale('log')
         ax1.plot(self.train_loss_history, label="train")
         ax1.plot(x_epochs,self.val_loss_history, label="validation", marker='x')
-        ax1.plot(smoothed, label="train_smoothed")
+        if n_smoothed > 1:
+            ax1.plot(smoothed, label="train_smoothed")
         ax1.legend()
-        ax1.set_ylabel('log(loss)')
+        ax1.set_ylabel('loss')
         ax1.set_xlabel('batch')
         
         ax2.plot(np.arange(1,len(self.val_acc_history)+1),self.val_acc_history, label="validation", marker='x')

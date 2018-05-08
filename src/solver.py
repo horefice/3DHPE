@@ -1,10 +1,11 @@
 import numpy as np
-from random import shuffle
+import shutil
 import time
 
 import torch
 from torch.autograd import Variable
 from viz import Viz
+from utils import AverageMeter
 
 class Solver(object):
     default_adam_args = {"lr": 1e-4,
@@ -13,25 +14,16 @@ class Solver(object):
                          "weight_decay": 0.0}
 
     def __init__(self, optim=torch.optim.Adam, optim_args={},
-                 loss_func=torch.nn.CrossEntropyLoss(), vis=False):
+                 loss_func=torch.nn.MSELoss(), vis=False):
         optim_args_merged = self.default_adam_args.copy()
         optim_args_merged.update(optim_args)
         self.optim_args = optim_args_merged
         self.optim = optim
         self.loss_func = loss_func
         self.visdom = Viz() if vis else False
-
         self._reset_histories()
 
-    def _reset_histories(self):
-        """
-        Resets train and val histories for the accuracy and the loss.
-        """
-        self.train_loss_history = []
-        self.val_acc_history = []
-        self.val_loss_history = []
-
-    def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0):
+    def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0, checkpoint={}):
         """
         Train a given model with the provided data.
 
@@ -45,9 +37,16 @@ class Solver(object):
         optim = self.optim(filter(lambda p: p.requires_grad,model.parameters()), **self.optim_args)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim)
         self._reset_histories()
-        self.best_model = None
         iter_per_epoch = len(train_loader)
+        start_epoch = 0
         best_val_acc = 0.0
+        is_best = False
+
+        if len(checkpoint) > 0:
+            start_epoch = checkpoint['epoch']
+            best_val_acc = checkpoint['best_val_acc']
+            optim.load_state_dict(checkpoint['optimizer'])
+            print("\n=> Loaded checkpoint (epoch %d)" % checkpoint['epoch'])
 
         if self.visdom:
             iter_plot = self.visdom.create_plot('Epoch', 'Loss', 'Train Loss', {'ytype':'log'})
@@ -64,7 +63,7 @@ class Solver(object):
         #   ...                                                                #
         ########################################################################
 
-        for epoch in range(num_epochs):
+        for epoch in range(start_epoch, num_epochs):
             # TRAINING
             model.train()
             train_loss = 0
@@ -85,7 +84,7 @@ class Solver(object):
                 if log_nth and i % log_nth == 0:
                     last_log_nth_losses = self.train_loss_history[-log_nth:]
                     train_loss = np.mean(last_log_nth_losses)
-                    print('[Iteration %d/%d] TRAIN loss: %.4f' % \
+                    print('[Iteration %d/%d] TRAIN loss: %.2f' % \
                         (i + epoch * iter_per_epoch,
                          iter_per_epoch * num_epochs,
                          train_loss))
@@ -98,7 +97,7 @@ class Solver(object):
                             type_upd="append")
 
             if log_nth:
-                print('[Epoch %d/%d] TRAIN   loss: %.4f (%d ms)' % (epoch + 1,
+                print('[Epoch %d/%d] TRAIN   loss: %.2f (%d ms)' % (epoch + 1,
                                                            num_epochs,
                                                            train_loss,
                                                            (time.time()-last_time)*1000.0))
@@ -109,26 +108,28 @@ class Solver(object):
                 self.val_acc_history.append(val_acc)
                 self.val_loss_history.append(val_loss)
                 if log_nth:
-                    print('[Epoch %d/%d] VAL acc/loss: %.4f/%.4f' % (epoch + 1,
+                    print('[Epoch %d/%d] VAL acc/loss: %.2f/%.2f' % (epoch + 1,
                                                                        num_epochs,
-                                                                       val_acc,
+                                                                       val_acc*100,
                                                                        val_loss))
 
                 # Reduce LR progressively
                 scheduler.step(val_loss)
 
                 # Update best model to the one with highest validation set accuracy
-                if val_acc >= best_val_acc:
-                    best_val_acc = val_acc
-                    self.best_model = model
-            else:
-                self.best_model = model
+                is_best = val_acc >= best_val_acc
+                best_val_acc = max(val_acc,best_val_acc)
+            
+            self._save_checkpoint({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'best_val_acc': best_val_acc,
+                'optimizer' : optim.state_dict(),
+            }, is_best)
 
-        self.best_model.save(path='../models/nn.pth')
-        self._save_histories(path='../models/train_histories.npz')
         print('FINISH.')
 
-    def test(self, model, test_loader):
+    def test(self, model, test_loader, tolerance=0.05):
         """
         Test a given model with the provided data.
 
@@ -136,8 +137,8 @@ class Solver(object):
         - model: model object initialized from a torch.nn.Module
         - test_loader: test data in torch.utils.data.DataLoader
         """
-        test_losses = []
-        test_scores = 0
+        test_loss = AverageMeter()
+        correct = 0
         model.eval()
 
         for inputs, targets in test_loader:
@@ -147,21 +148,48 @@ class Solver(object):
             
             outputs = model.forward(inputs)
             loss = self.loss_func(outputs, targets)
-            test_losses.append(loss.data.cpu().numpy())
+            test_loss.update(loss.data.cpu().numpy())
 
-            # diff = (outputs - targets).pow(2).mean()
-            # if diff.data.cpu().numpy() < 35000:
-            #     test_scores += 1
+            diff = (outputs - targets).pow(2).mean() #same as loss if MSELoss
+            max_diff = np.square(inputs.size(-1)*tolerance)
+            if diff.data.cpu().numpy() < max_diff:
+                correct += 1
             
-        test_acc, test_loss = test_scores / len(test_loader), np.mean(test_losses)
-        return test_acc, test_loss
+        return correct / len(test_loader), float(test_loss.avg)
 
-    def _save_histories(self, path="save.npz"):
+    def _save_checkpoint(self, state, is_best, fname='../models/checkpoint.pth'):
         """
-        Save training history with its parameters to self.path. Conventionally the
+        Save current state of training and trigger method to save training history.
+        """
+        print('Saving at checkpoint...')
+        torch.save(state, fname)
+        self._save_histories()
+        if is_best:
+            shutil.copyfile(fname, '../models/model_best.pth')
+
+    def _reset_histories(self):
+        """
+        Resets train and val histories for the accuracy and the loss.
+        """
+        self.train_loss_history = []
+        self.val_acc_history = []
+        self.val_loss_history = []
+
+    def _save_histories(self, path="../models/train_history.npz"):
+        """
+        Save training history with its parameters to path. Conventionally the
         path should end with "*.npz".
         """
-        print('Saving training histories... %s' % path)
         np.savez(path, train_loss_history=self.train_loss_history,
                         val_loss_history=self.val_loss_history,
                         val_acc_history=self.val_acc_history)
+
+    def _load_histories(self, path="../models/train_history.npz"):
+        """
+        Load training history with its parameters to self.path. Conventionally the
+        path should end with "*.npz".
+        """
+        npzfile = np.load(self.path)
+        self.train_loss_history = npzfile['train_loss_history']
+        self.val_acc_history = npzfile['val_acc_history']
+        self.val_loss_history = npzfile['val_loss_history']

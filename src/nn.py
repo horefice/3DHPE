@@ -45,7 +45,7 @@ class MyNN(nn.Module):
         """
         return next(self.parameters()).is_cuda
 
-    def save(self, path):
+    def save(self, path="../models/nn.pth"):
         """
         Save model with its parameters to the given path. Conventionally the
         path should end with "*.pth".
@@ -62,7 +62,7 @@ class MyNet(MyNN):
     A PyTorch implementation of MyNet
     with the following architecture:
 
-    resnet50 (except last layer) - fc1
+    resnet50 (except last layer) - fc1 - fc2
     """
 
     def __init__(self):
