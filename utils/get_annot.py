@@ -16,7 +16,7 @@ if not os.path.exists(SAVE_PATH):
 h5name = SAVE_PATH + 'annot.h5'
 f = h5py.File(h5name, 'w')
 
-id_list_ = ["S1","S2"] #["S1","S2","S3","S4","S5","S6","S7","S8"]
+id_list_ = ["S1","S2","S3","S4","S5","S6","S7","S8"]
 for id_ in id_list_:
 	mat = scipy.io.loadmat('../../mpi_inf_3dhp/datasets/'+id_+'/Seq1/annot.mat')
 	#mat['annot3'][camera][0][frame][jointx3]

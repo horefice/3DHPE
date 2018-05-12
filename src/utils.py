@@ -18,7 +18,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-class Plotter():
+class Plotter(object):
     """Loads and plots training history"""
     def __init__(self, path='../models/train_history.npz'):
         self.path = path

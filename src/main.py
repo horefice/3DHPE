@@ -38,8 +38,13 @@ parser.add_argument('--seed', type=int, default=1, metavar='N',
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status (default: 10)')
 
+## PREPARE ARGS
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+if args.resume and not args.model:
+  print("\n=> No model to resume training. Double-check arguments!")
+  quit()
 
 torch.manual_seed(args.seed)
 kwargs = {}
@@ -68,10 +73,6 @@ solver = Solver(optim_args={"lr": args.lr},
                 loss_func=torch.nn.MSELoss(), vis=args.visdom)
 
 ## TRAIN
-if args.resume and not args.model:
-  print("\n=> No model to resume training. Double-check arguments!")
-  quit()
-
 if (not args.model) ^ args.resume:
   train_sampler, val_sampler = train_data.subdivide_dataset(args.val_size, args.seed)
 

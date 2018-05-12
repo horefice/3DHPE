@@ -3,7 +3,7 @@ import torch
 import visdom
 import time
 
-class Viz():
+class Viz(object):
     def __init__(self):
         self.viz = visdom.Visdom(port=8099)
 
@@ -15,7 +15,7 @@ class Viz():
                 ylabel=ylabel,
                 title=title + time.strftime("(%d.%m @ %H:%M:%S)"))
         options.update(opts_dict)
-        
+
         return self.viz.line(
             X=torch.zeros(1).cpu(),
             Y=torch.zeros(1).cpu(),
