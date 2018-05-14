@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms
 from mpl_toolkits.mplot3d import Axes3D
-from imutils.video import FPS
 from torch.autograd import Variable
 from nn import MyNet
 
@@ -122,7 +121,7 @@ def demo_live():
     # start video stream thread, allow buffer to fill
     print("[INFO] starting threaded video stream...")
     cap = cv.VideoCapture(0)  # default camera
-    frame = 0
+    num_frames = 0
 
     # loop over frames from the video file stream
     while True:
@@ -130,9 +129,6 @@ def demo_live():
         _, frame = cap.read()
         key = cv.waitKey(1) & 0xFF
         frame = cv.resize(frame, (320, 320))
-
-        # update FPS counter
-        fps.update()
 
         # keybindings for display
         if key == ord('p'):  # pause
@@ -144,11 +140,13 @@ def demo_live():
                 if key2 == ord('p'):  # resume
                     break
         cv.imshow('My Live Demo', frame)
+        num_frames += 1
 
         if key == 27:  # exit
             break
 
     cap.release()
+    return frames
 
 if __name__ == '__main__':
     cuda = not args.no_cuda and torch.cuda.is_available()
@@ -160,17 +158,16 @@ if __name__ == '__main__':
         net.cuda()
     
     if args.live:
-        fps = FPS().start()
-        demo_live()
-        fps.stop()
-
-        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+        start = time.time()
+        num_frames = demo_live()
+        elasped = time.time() - start
+        print("[INFO] elasped time: {0}".format(elasped))
+        print("[INFO] approx. FPS: {:.2f}".format(num_frames / elasped))
 
         # cleanup
         cv.destroyAllWindows()
     else:
-        img = Image.open('../datasets/train/S1_1/S1_1_0_0001.jpg', 'r')        
+        img = Image.open('../datasets/train/S1_1/S1_1_0_00001.jpg', 'r')        
         target = h5py.File('../datasets/annot.h5', 'r')["S1"]["annot3_1_0"][0]
         create_plot(img, target)
 

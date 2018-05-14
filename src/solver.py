@@ -33,6 +33,7 @@ class Solver(object):
         - val_loader: val data in torch.utils.data.DataLoader
         - num_epochs: total number of training epochs
         - log_nth: log training accuracy and loss every nth iteration
+        - checkpoint: object used to resume training from a checkpoint
         """
         optim = self.optim(filter(lambda p: p.requires_grad,model.parameters()), **self.optim_args)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim)
@@ -136,6 +137,7 @@ class Solver(object):
         Inputs:
         - model: model object initialized from a torch.nn.Module
         - test_loader: test data in torch.utils.data.DataLoader
+        - tolerance: acceptable percentage error used to compute test accuracy
         """
         test_loss = AverageMeter()
         correct = 0

@@ -5,6 +5,4 @@ torchvision
 h5py
 matplotlib
 visdom
-imutils
 opencv-python
-scipy
