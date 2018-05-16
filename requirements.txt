@@ -6,3 +6,4 @@ h5py
 matplotlib
 visdom
 opencv-python
+scipy

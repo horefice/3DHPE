@@ -8,27 +8,27 @@ import torch
 
 from nn import MyNet
 from solver import Solver
-from dataHandler import DataHandler
+from dataHandler import TrainDataHandler, TestDataHandler
 from utils import Plotter
 
 ## SETTINGS
 parser = argparse.ArgumentParser(description='MyNet Implementation')
 parser.add_argument('-b', '--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
-                    help='input batch size for testing (default: 128)')
+parser.add_argument('--test-batch-size', type=int, default=1024, metavar='N',
+                    help='input batch size for testing (default: 1024)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--lr', '--learning-rate', type=float, default=1e-3, metavar='F',
                     help='learning rate (default: 1e-3)')
 parser.add_argument('--val-size', type=float, default=0.2, metavar='F',
-                    help='Validation set size ratio from training set (default: 0.2)')
+                    help='validation set size ratio from training set (default: 0.2)')
 parser.add_argument('--model', type=str, default='', metavar='S',
                     help='use previously saved model')
 parser.add_argument('--resume', action='store_true', default=False,
                     help='resume training from model')
-parser.add_argument('--plot', type=bool, default=False, metavar='B',
-                    help='Plot train and validation histories (default: False)')
+parser.add_argument('--plot', action='store_true', default=False,
+                    help='enables plot train and validation histories')
 parser.add_argument('--visdom', action='store_true', default=False,
                     help='enables VISDOM')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -53,8 +53,8 @@ if args.cuda:
   kwargs = {'num_workers': 1, 'pin_memory': True}
 
 ## LOAD DATA
-train_data = DataHandler('../datasets/train/')
-test_data = DataHandler('../datasets/test/')
+train_data = TrainDataHandler('../datasets/train/')
+test_data = TestDataHandler('../datasets/test/')
 
 print("\nDATASET INFO.")
 print("Train & validation size: %i" % len(train_data))
@@ -74,7 +74,9 @@ solver = Solver(optim_args={"lr": args.lr},
 
 ## TRAIN
 if (not args.model) ^ args.resume:
-  train_sampler, val_sampler = train_data.subdivide_dataset(args.val_size, args.seed)
+  train_sampler, val_sampler = train_data.subdivide_dataset(args.val_size,
+                                                           shuffle=True,
+                                                           seed=args.seed)
 
   train_loader = torch.utils.data.DataLoader(train_data,
                                             sampler=train_sampler,
