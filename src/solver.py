@@ -197,7 +197,6 @@ class Solver(object):
     path should end with "*.npz".
     """
     npzfile = np.load(path)
-    print(npzfile['train_loss_history'])
     self.train_loss_history = npzfile['train_loss_history'].tolist()
     self.val_acc_history = npzfile['val_acc_history'].tolist()
     self.val_loss_history = npzfile['val_loss_history'].tolist()
