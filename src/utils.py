@@ -36,7 +36,7 @@ class Plotter(object):
     self.val_acc_history = npzfile['val_acc_history']
     self.val_loss_history = npzfile['val_loss_history']
 
-  def plot_histories(self, extra_title='', n_smoothed=0):
+  def plot_histories(self, extra_title='', n_smoothed=1):
     """
     Plot losses and accuracies from training and validation. Also plots a 
     smoothed curve for train_loss.
@@ -45,7 +45,7 @@ class Plotter(object):
     - extra_title: extra string to be appended to plot's title
     """
     f, (ax1, ax2) = plt.subplots(1, 2)
-    f.suptitle('Training histories' + extra_title)
+    f.suptitle('Training histories ' + extra_title)
 
     x_epochs = np.arange(1,len(self.val_loss_history)+1)*len(self.train_loss_history)/len(self.val_loss_history)
 

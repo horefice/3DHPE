@@ -37,7 +37,6 @@ class Solver(object):
     """
     optim = self.optim(filter(lambda p: p.requires_grad,model.parameters()), **self.optim_args)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim)
-    self._reset_histories()
     iter_per_epoch = len(train_loader)
     start_epoch = 0
     best_val_acc = 0.0
@@ -82,7 +81,7 @@ class Solver(object):
         loss.backward()
         optim.step()
 
-        np.append(self.train_loss_history,loss.data.cpu().numpy())
+        self.train_loss_history.append(loss.data.cpu().numpy())
         if log_nth and i % log_nth == 0:
           last_log_nth_losses = self.train_loss_history[-log_nth:]
           train_loss = np.mean(last_log_nth_losses)
@@ -107,8 +106,8 @@ class Solver(object):
       # VALIDATION
       if len(val_loader):
         val_acc, val_loss = self.test(model, val_loader)
-        np.append(self.val_acc_history,val_acc)
-        np.append(self.val_loss_history,val_loss)
+        self.val_acc_history.append(val_acc)
+        self.val_loss_history.append(val_loss)
         if log_nth:
           print('[Epoch %d/%d] VAL acc/loss: %.2f/%.2f' % (epoch + 1,
                                                           num_epochs,
@@ -198,6 +197,7 @@ class Solver(object):
     path should end with "*.npz".
     """
     npzfile = np.load(path)
-    self.train_loss_history = npzfile['train_loss_history']
-    self.val_acc_history = npzfile['val_acc_history']
-    self.val_loss_history = npzfile['val_loss_history']
+    print(npzfile['train_loss_history'])
+    self.train_loss_history = npzfile['train_loss_history'].tolist()
+    self.val_acc_history = npzfile['val_acc_history'].tolist()
+    self.val_loss_history = npzfile['val_loss_history'].tolist()

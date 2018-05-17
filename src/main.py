@@ -103,4 +103,4 @@ print('Test loss: {:.2f}'.format(test_loss))
 if args.plot:
   plotter = Plotter()
   plotter.load_histories()
-  plotter.plot_histories('(test_acc = ' + str(test_acc*100) + '%)')
+  plotter.plot_histories('(test_acc = {:.2f}%)'.format(test_acc*100))
