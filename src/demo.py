@@ -23,6 +23,8 @@ parser.add_argument('--live', action='store_true', default=False,
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 args = parser.parse_args()
+cuda = not args.no_cuda and torch.cuda.is_available()
+net = MyNet()
 
 #   all_joint_names = {'spine3', 'spine4', 'spine2', 'spine', 'pelvis', ...     %5       
 #         'neck', 'head', 'head_top', 'left_clavicle', 'left_shoulder', 'left_elbow', ... %11
@@ -59,7 +61,7 @@ POSE_PAIRS = [['pelvis','head'],
 def predict(frame, timeit=False):
   x = torch.from_numpy(np.array(frame)).permute(2,0,1).float() / 256
   x = Variable(x.unsqueeze(0))
-  if cuda:
+  if net.is_cuda:
     x.cuda()
 
   start = time.time()
@@ -68,6 +70,9 @@ def predict(frame, timeit=False):
     print('the prediction took {:.2f} ms'.format((time.time()-start)*1000.0))
 
   return y
+
+def rescale(x):
+  return int((x+1024)/6.4)
 
 def draw_skeleton_plot(plot, target):
   for pose in POSE_PAIRS:
@@ -106,14 +111,14 @@ def create_plot(img, target=[]):
 def draw_skeleton_live(frame, y):
   for part in MIN_BODY_PARTS:
     i = BODY_PARTS.index(part)*3
-    point = (int(y[i]),int(y[i+1]))
+    point = (rescale(y[i]),rescale(y[i+1]))
     cv.ellipse(frame, point, (3, 3), 0, 0, 360, (0,0,255), cv.FILLED)
   for pair in POSE_PAIRS:
     idFrom = BODY_PARTS.index(pair[0])*3
     idTo = BODY_PARTS.index(pair[1])*3
-    pointFrom = (int(y[idFrom]),int(y[idFrom+1]))
-    pointTo = (int(y[idTo]),int(y[idTo+1]))
-    cv.line(frame, pointFrom, pointTo, (0, 255, 0), 2)
+    pointFrom = (rescale(y[idFrom]),rescale(y[idFrom+1]))
+    pointTo = (rescale(y[idTo]),rescale(y[idTo+1]))
+    cv.line(frame, pointFrom, pointTo, (0, 255, 0), 1)
 
 def demo_live():
 
@@ -122,6 +127,7 @@ def demo_live():
   cap = cv.VideoCapture(0)  # default camera
   num_frames = 0
   start = time.time()
+  time_paused = 0
 
   # loop over frames from the video file stream
   while True:
@@ -132,13 +138,17 @@ def demo_live():
 
     # keybindings for display
     if key == ord('p'):  # pause
+      start_pause = time.time()
       y = predict(frame, True)
       draw_skeleton_live(frame, y)
+
       while True:
         key2 = cv.waitKey(1) or 0xff
         cv.imshow('My Live Demo', frame)
         if key2 == ord('p'):  # resume
+          time_paused += time.time() - start_pause
           break
+
     cv.imshow('My Live Demo', frame)
     num_frames += 1
 
@@ -147,13 +157,10 @@ def demo_live():
 
   elasped = time.time() - start
   print("[INFO] elasped time: {0}".format(elasped))
-  print("[INFO] approx. FPS: {:.2f}".format(num_frames / elasped))
+  print("[INFO] approx. FPS: {:.2f}".format(num_frames / (elasped-time_paused)))
   cap.release()
 
 if __name__ == '__main__':
-  cuda = not args.no_cuda and torch.cuda.is_available()
-
-  net = MyNet()
   net.load_state_dict(torch.load(args.model)['state_dict'])
   net.eval()
   if cuda:

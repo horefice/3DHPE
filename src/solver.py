@@ -82,7 +82,7 @@ class Solver(object):
         loss.backward()
         optim.step()
 
-        self.train_loss_history.append(loss.data.cpu().numpy())
+        np.append(self.train_loss_history,loss.data.cpu().numpy())
         if log_nth and i % log_nth == 0:
           last_log_nth_losses = self.train_loss_history[-log_nth:]
           train_loss = np.mean(last_log_nth_losses)
@@ -107,8 +107,8 @@ class Solver(object):
       # VALIDATION
       if len(val_loader):
         val_acc, val_loss = self.test(model, val_loader)
-        self.val_acc_history.append(val_acc)
-        self.val_loss_history.append(val_loss)
+        np.append(self.val_acc_history,val_acc)
+        np.append(self.val_loss_history,val_loss)
         if log_nth:
           print('[Epoch %d/%d] VAL acc/loss: %.2f/%.2f' % (epoch + 1,
                                                           num_epochs,
@@ -197,7 +197,7 @@ class Solver(object):
     Load training history with its parameters to self.path. Conventionally the
     path should end with "*.npz".
     """
-    npzfile = np.load(self.path)
+    npzfile = np.load(path)
     self.train_loss_history = npzfile['train_loss_history']
     self.val_acc_history = npzfile['val_acc_history']
     self.val_loss_history = npzfile['val_loss_history']
