@@ -23,9 +23,9 @@ parser.add_argument('--live', action='store_true', default=False,
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 args = parser.parse_args()
-cuda = not args.no_cuda and torch.cuda.is_available()
-net = MyNet()
+args.cuda = not args.no_cuda and torch.cuda.is_available()
 
+# DATASET INFO
 #   all_joint_names = {'spine3', 'spine4', 'spine2', 'spine', 'pelvis', ...     %5       
 #         'neck', 'head', 'head_top', 'left_clavicle', 'left_shoulder', 'left_elbow', ... %11
 #        'left_wrist', 'left_hand',  'right_clavicle', 'right_shoulder', 'right_elbow', 'right_wrist', ... %17
@@ -46,33 +46,25 @@ POSE_PAIRS = [['pelvis','head'],
               ['neck','right_shoulder'], ['right_shoulder','right_elbow'], ['right_elbow','right_hand'],
               ['pelvis','left_hip'], ['left_hip','left_knee'], ['left_knee','left_foot'],
               ['pelvis','right_hip'], ['right_hip','right_knee'], ['right_knee','right_foot']]
-# all_lines = [[1,0,'b'],[0,2,'b'],[2,3,'b'],[3,4,'b'], #spine
-#         [1,5,'b'],[5,6,'b'],[6,7,'b'], #head
-#         [5,9,'g'],[9,10,'g'],[10,11,'g'],[11,12,'g'], #left arm
-#         [5,14,'r'],[14,15,'r'],[15,16,'r'],[16,17,'r'], #right arm
-#         [4,18,'g'],[18,19,'g'],[19,20,'g'],[20,21,'g'], #left lef
-#         [4,23,'r'],[23,24,'r'],[24,25,'r'],[25,26,'r']] #right leg
-# lines = [[4,6,'b'], # pelvis-head
-#         [5,9,'g'],[9,10,'g'],[10,12,'g'], #left arm
-#         [5,14,'r'],[14,15,'r'],[15,17,'r'], #right arm
-#         [4,18,'g'],[18,19,'g'],[19,21,'g'], #left lef
-#         [4,23,'r'],[23,24,'r'],[24,26,'r']] #right leg
 
 def predict(frame, timeit=False):
+  net.eval()
+
   x = torch.from_numpy(np.array(frame)).permute(2,0,1).float() / 256
   x = Variable(x.unsqueeze(0))
   if net.is_cuda:
-    x.cuda()
+    x = x.cuda()
 
   start = time.time()
-  y = net.forward(x).data.numpy()[0]
+  y = net.forward(x)
   if timeit:
     print('the prediction took {:.2f} ms'.format((time.time()-start)*1000.0))
+  y = y.data.cpu().numpy()[0]
 
   return y
 
 def rescale(x):
-  return int((x+1024)/6.4)
+  return int((x+1024)*320/2048)
 
 def draw_skeleton_plot(plot, target):
   for pose in POSE_PAIRS:
@@ -126,8 +118,8 @@ def demo_live():
   print("[INFO] starting threaded video stream...")
   cap = cv.VideoCapture(0)  # default camera
   num_frames = 0
-  start = time.time()
   time_paused = 0
+  start = time.time()
 
   # loop over frames from the video file stream
   while True:
@@ -136,11 +128,12 @@ def demo_live():
     key = cv.waitKey(1) & 0xFF
     frame = cv.resize(frame, (320, 320))
 
+    y = predict(frame)
+    draw_skeleton_live(frame, y)
+    
     # keybindings for display
     if key == ord('p'):  # pause
       start_pause = time.time()
-      y = predict(frame, True)
-      draw_skeleton_live(frame, y)
 
       while True:
         key2 = cv.waitKey(1) or 0xff
@@ -156,19 +149,19 @@ def demo_live():
       break
 
   elasped = time.time() - start
-  print("[INFO] elasped time: {0}".format(elasped))
+  print("[INFO] elasped time: {:.2f}s".format(elasped))
   print("[INFO] approx. FPS: {:.2f}".format(num_frames / (elasped-time_paused)))
   cap.release()
 
 if __name__ == '__main__':
+  net = MyNet()
   net.load_state_dict(torch.load(args.model)['state_dict'])
-  net.eval()
-  if cuda:
+  if args.cuda:
     net.cuda()
   
   if args.live:
     demo_live()
-    cv.destroyAllWindows() # cleanup
+    cv.destroyAllWindows()
   else:
     img = Image.open('../datasets/train/S1_1/S1_1_0_00001.jpg', 'r')        
     target = h5py.File('../datasets/annot.h5', 'r')["S1"]["annot3_1_0"][0]
