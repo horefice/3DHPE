@@ -118,6 +118,9 @@ class VNect(MyNN):
     self.conv1 = nn.Conv2d(240, 128, 3, stride=1, padding=1)
     self.conv2 = nn.Conv2d(128, 112, 1)
 
+    self.fc1 = nn.Linear(716800, 252)
+    self.fc2 = nn.Linear(252, 84)
+
   def forward(self, x):
     out = self.resnet(x) # (1024,w/16,h/16)
 
@@ -132,10 +135,15 @@ class VNect(MyNN):
     out3 = torch.sqrt(out3) # (28,w/8,h/8)
     out = torch.cat((out,out3),1) # (240,w/8,h/8)
 
-    out = F.relu(self.conv1(out))
-    out = self.conv2(out)
+    out = F.relu(self.conv1(out)) # (128,w/8,h/8)
+    out = self.conv2(out) # (112,w/8,h/8)
+    out = out.view(out.size(0),4,out.size(-1),out.size(-2),28)
 
-    return out
+    out_mod = out.view(out.size(0), -1)
+    out_mod = F.relu(self.fc1(out_mod))
+    out_mod = self.fc2(out_mod)
+
+    return out_mod
 
 class Residual(nn.Module):
   def __init__(self, numIn, numOut, residual=True):
@@ -161,16 +169,3 @@ class Residual(nn.Module):
     if (self.numIn != self.numOut & self.residual):
       residual = self.conv4(x)
     return out + residual
-
-# if __name__ == '__main__':
-#   net = VNect()
-#   net.eval()
-#   import numpy as np
-#   import torch
-#   from torch.autograd import Variable
-#   print(net.forward(Variable(torch.from_numpy(np.random.rand(1,3,320,320)).float())).shape)
-
-#   import pickle
-#   model_weights = pickle.load(open('../../vnect.pkl', 'rb'), encoding='latin1')
-#   print(model_weights.keys())
-#   print(model_weights['res5c_branch2b/weights'].shape)

@@ -6,7 +6,7 @@ import numpy as np
 import argparse
 import torch
 
-from nn import MyNet
+from nn import MyNet, VNect
 from solver import Solver
 from dataHandler import TrainDataHandler, TestDataHandler
 from utils import Plotter
@@ -31,6 +31,8 @@ parser.add_argument('--plot', action='store_true', default=False,
                     help='enables plot train and validation histories')
 parser.add_argument('--visdom', action='store_true', default=False,
                     help='enables VISDOM')
+parser.add_argument('--vnect', action='store_true', default=False,
+                    help='uses VNect-like network')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 parser.add_argument('--seed', type=int, default=1, metavar='N',
@@ -63,7 +65,7 @@ print("Test size: %i" % len(test_data))
 print("Data dimensions:", train_data[0][0].size())
 
 ## LOAD MODELS & SOLVER
-model = MyNet()
+model = MyNet() if not args.vnect else VNect()
 checkpoint = {}
 if args.model:
   checkpoint = torch.load(args.model)

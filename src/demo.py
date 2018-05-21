@@ -128,12 +128,16 @@ def demo_live():
     key = cv.waitKey(1) & 0xFF
     frame = cv.resize(frame, (320, 320))
 
-    y = predict(frame)
-    draw_skeleton_live(frame, y)
+    if args.cuda:
+      y = predict(frame)
+      draw_skeleton_live(frame, y)
     
     # keybindings for display
     if key == ord('p'):  # pause
       start_pause = time.time()
+      if not args.cuda:
+        y = predict(frame)
+        draw_skeleton_live(frame, y)
 
       while True:
         key2 = cv.waitKey(1) or 0xff
