@@ -82,17 +82,95 @@ class MyNet(MyNN):
     - dropout: Probability of an element to be zeroed.
     """
     super(MyNet, self).__init__()
+
     resnet = models.resnet50(pretrained=True)
     for param in resnet.parameters():
       param.requires_grad = False
     modules = list(resnet.children())[:-1] # delete the last fc layer.
     self.resnet = nn.Sequential(*modules)
+
     self.fc1 = nn.Linear(32768, 160)
     self.fc2 = nn.Linear(160, 84)
 
   def forward(self, x):
-    features = self.resnet(x)
-    features = Variable(features.data)
-    features = features.view(features.size(0), -1)
-    features = F.relu(self.fc1(features))
-    return self.fc2(features)
+    out = self.resnet(x)
+    out = Variable(out.data)
+    out = out.view(out.size(0), -1)
+    out = F.relu(self.fc1(out))
+    return self.fc2(out)
+
+class VNect(MyNN):
+  def __init__(self):
+    super(VNect, self).__init__()
+
+    resnet = models.resnet50(pretrained=True)
+    for param in resnet.parameters():
+      param.requires_grad = False
+    modules = list(resnet.children())[:-4] # until res4f (or res3?)
+    self.resnet = nn.Sequential(*modules)
+
+    self.res5a = Residual(512, 1024)
+    self.res5b = Residual(1024, 256, residual=False)
+
+    self.deconv1 = nn.ConvTranspose2d(256, 84, 4, stride=2, padding=1)
+    self.deconv2 = nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1)
+
+    self.conv1 = nn.Conv2d(240, 128, 3, stride=1, padding=1)
+    self.conv2 = nn.Conv2d(128, 112, 1)
+
+  def forward(self, x):
+    out = self.resnet(x) # (1024,w/16,h/16)
+
+    out = self.res5a(out) # (1024,w/16,h/16)
+    out = self.res5b(out) # (256,w/16,h/16)
+
+    out1 = self.deconv1(out) # (84,w/8,h/8)
+    out2 = self.deconv2(out) # (128,w/8,h/8)
+    out = torch.cat((out1,out2),1)
+    out3 = torch.add(torch.mul(out1[:,::3],out1[:,::3]),torch.mul(out1[:,1::3],out1[:,1::3]))
+    out3 = torch.add(out3,torch.mul(out1[:,2::3],out1[:,2::3]))
+    out3 = torch.sqrt(out3) # (28,w/8,h/8)
+    out = torch.cat((out,out3),1) # (240,w/8,h/8)
+
+    out = F.relu(self.conv1(out))
+    out = self.conv2(out)
+
+    return out
+
+class Residual(nn.Module):
+  def __init__(self, numIn, numOut, residual=True):
+    super(Residual, self).__init__()
+    self.numIn = numIn
+    self.numOut = numOut
+    self.residual = residual
+    self.conv1 = nn.Conv2d(self.numIn, int(self.numOut/2), 1)
+    self.bn1 = nn.BatchNorm2d(int(self.numOut/2))
+    self.conv2 = nn.Conv2d(int(self.numOut/2), int(self.numOut/2), 3, stride=1, padding=1)
+    self.bn2 = nn.BatchNorm2d(int(self.numOut/2))
+    self.conv3 = nn.Conv2d(int(self.numOut/2), self.numOut, 1)
+
+    if (self.numIn != self.numOut & self.residual):
+      self.conv4 = nn.Conv2d(self.numIn, self.numOut, 1) 
+    
+  def forward(self, x):
+    residual = x if self.residual else 0
+    out = F.relu(self.bn1(self.conv1(x)))
+    out = F.relu(self.bn2(self.conv2(out)))
+    out = self.conv3(out)
+    
+    if (self.numIn != self.numOut & self.residual):
+      residual = self.conv4(x)
+    return out + residual
+
+# if __name__ == '__main__':
+#   net = VNect()
+#   net.eval()
+#   import numpy as np
+#   import torch
+#   from torch.autograd import Variable
+#   print(net.forward(Variable(torch.from_numpy(np.random.rand(1,3,320,320)).float())).shape)
+
+#   import pickle
+#   model_weights = pickle.load(open('../../vnect.pkl', 'rb'), encoding='latin1')
+#   print(model_weights.keys())
+#   print(model_weights['res5c_branch2b/weights'].shape)

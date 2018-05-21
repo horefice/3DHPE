@@ -73,14 +73,19 @@ class TestDataHandler(DataHandler):
     self.targets = h5py.File('../datasets/annot.h5')
 
   def get_item_from_index(self, index):
+    img, class_idx = super(DataHandler, self).__getitem__(index)
+
     to_tensor = transforms.ToTensor()
-    img = to_tensor(super(DataHandler, self).__getitem__(index)[0])
+    img = to_tensor(img)
     # center_crop = transforms.CenterCrop(320)
     # img = center_crop(img)
 
     path = self.imgs[index][0]
-    infos = ('.').join(path.split('/')[-1].split('.')[:-1]).split('_') #[SX,SeqX,Cam,frame]
-    target = self.targets[infos[0]]['annot3_'+infos[1]+'_'+infos[2]][int(infos[3])-1]
-    target = torch.from_numpy(target).float()
+    data = self.targets[self.classes[class_idx]]
+    img_idx = int(('.').join(path.split('/')[-1].split('.')[:-1]).split('_')[-1])-1
+    target = torch.from_numpy(data['annot3'][img_idx]).float()
+
+    if len(target.size()) > 1:
+      target = torch.transpose(target,-2,-1).contiguous().view(-1)
 
     return img, target

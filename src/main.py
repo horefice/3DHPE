@@ -50,6 +50,7 @@ torch.manual_seed(args.seed)
 kwargs = {}
 if args.cuda:
   torch.cuda.manual_seed_all(args.seed)
+  torch.backends.cudnn.benchmark = True
   kwargs = {'num_workers': 1, 'pin_memory': True}
 
 ## LOAD DATA

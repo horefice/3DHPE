@@ -149,6 +149,15 @@ class Solver(object):
         inputs, targets = inputs.cuda(), targets.cuda()
       
       outputs = model.forward(inputs)
+      if outputs.size() != targets.size():
+        temp = torch.zeros(targets.size())
+        joint_idx = [8, 6, 15, 16, 17, 10, 11, 12, 24, 25, 26, 19, 20, 21, 5, 4, 7] # indices+1
+        for idx, val in enumerate(joint_idx):
+          temp[:,idx*3] = outputs[:,(val-1)*3]
+          temp[:,idx*3+1] = outputs[:,(val-1)*3+1]
+          temp[:,idx*3+2] = outputs[:,(val-1)*3+2]
+        outputs = temp
+
       loss = self.loss_func(outputs, targets)
       test_loss.update(loss.data.cpu().numpy())
 
