@@ -60,11 +60,12 @@ if args.cuda:
   torch.backends.cudnn.benchmark = True
   kwargs = {'num_workers': 1, 'pin_memory': True}
 
-args_list = dict((name, getattr(args, name)) for name in dir(args)
-            if not name.startswith('_'))
 if not os.path.exists(args.saveDir):
   os.makedirs(args.saveDir)
-file_name = os.path.join(args.saveDir, 'opt.txt')
+
+args_list = dict((name, getattr(args, name)) for name in dir(args)
+            if not name.startswith('_'))
+file_name = os.path.join(args.saveDir, 'args.txt')
 with open(file_name, 'a') as opt_file:
   opt_file.write('\n==> Args ('+datetime.datetime.now().isoformat()+'):\n')
   for k, v in sorted(args_list.items()):
@@ -78,7 +79,7 @@ print('\nDATASET INFO.')
 print('Train & val. size:', len(train_data), 'x', train_data[0][0].size())
 print('Test size:', len(test_data), 'x', test_data[0][0].size())
 
-## LOAD MODELS & SOLVER
+## LOAD MODEL & SOLVER
 model = MyNet() if not args.vnect else VNect()
 checkpoint = {}
 if args.model:

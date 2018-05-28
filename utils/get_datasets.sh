@@ -11,7 +11,7 @@ for k in ../../mpi_inf_3dhp/datasets/S*/; do
     for i in ${k}Seq${j}/imageSequence/*.avi; do
       #echo $i
       cam=`echo $i | cut -d'_' -f4 | cut -d'.' -f1`
-      #ffmpeg -i ${i} -vf scale=320:320 ${path}/S${subj}_${j}_${cam}_%05d.jpg
+      ffmpeg -i ${i} -vf scale=320:320 ${path}/S${subj}_${j}_${cam}_%05d.jpg
     done
   done
 done

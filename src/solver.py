@@ -65,7 +65,7 @@ class Solver(object):
     #   [Iteration 800/4800] TRAIN loss: 1.409                             #
     #   [Iteration 900/4800] TRAIN loss: 1.374                             #
     #   [Epoch 1/5] TRAIN   loss: 0.560/1.374                              #
-    #   [Epoch 1/5] VAL acc/loss: 0.539/1.310                              #
+    #   [Epoch 1/5] VAL acc/loss: 53.90%/1.310                              #
     #   ...                                                                #
     ########################################################################
 
@@ -118,7 +118,7 @@ class Solver(object):
                                                             val_loss))
 
         # Reduce LR progressively
-        scheduler.step(val_loss)
+        scheduler.step(val_acc)
 
         # Update best model to the one with highest validation set accuracy
         is_best = val_acc >= best_val_acc
