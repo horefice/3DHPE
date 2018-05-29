@@ -16,10 +16,14 @@ from torch.autograd import Variable
 from nn import MyNet
 
 parser = argparse.ArgumentParser(description='Demo')
-parser.add_argument('--model', default='../models/model_best.pth',
-                    type=str, help='Trained model path')
+parser.add_argument('--model', type=str, default='../models/model_best.pth',
+                    help='Trained model path')
 parser.add_argument('--live', action='store_true', default=False,
                     help='Switch to live demo mode')
+parser.add_argument('--video', type=str, default='',
+                    help='Use video as input')
+parser.add_argument('--image', type=str, default='',
+                    help='Use image as input')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 args = parser.parse_args()
@@ -58,7 +62,7 @@ def predict(frame, timeit=False):
   start = time.time()
   y = net.forward(x)
   if timeit:
-    print('the prediction took {:.2f} ms'.format((time.time()-start)*1000.0))
+    print('Prediction function took {:.2f} ms'.format((time.time()-start)*1000.0))
   y = y.data.cpu().numpy()[0]
 
   return y
@@ -84,17 +88,20 @@ def draw_skeleton_plot(plot, target):
 
 def create_plot(img, target=[]):
   f = plt.figure()
-  f.suptitle('Frame, Ground Truth and Prediction')
+  f.suptitle('Demo from Image')
 
   ax1 = f.add_subplot(131)
+  ax1.set_title('Input')
   ax1.imshow(img)
 
   if len(target):
     ax2 = f.add_subplot(132, projection='3d')
+    ax2.set_title('Ground Truth')
     target = target
     draw_skeleton_plot(ax2, target)
 
   ax3 = f.add_subplot(133, projection='3d')
+  ax3.set_title('Prediction')
   y = predict(img, True)
   draw_skeleton_plot(ax3, y)
 
@@ -112,19 +119,21 @@ def draw_skeleton_live(frame, y):
     pointTo = (rescale(y[idTo]),rescale(y[idTo+1]))
     cv.line(frame, pointFrom, pointTo, (0, 255, 0), 1)
 
-def demo_live():
+def demo_video(video_path=0):
 
   # start video stream thread, allow buffer to fill
   print("[INFO] starting threaded video stream...")
-  cap = cv.VideoCapture(0)  # default camera
+  cap = cv.VideoCapture(video_path) # 0 for default camera
   num_frames = 0
   time_paused = 0
   start = time.time()
 
   # loop over frames from the video file stream
-  while True:
+  while cap.isOpened():
     # grab next frame
-    _, frame = cap.read()
+    isFrame, frame = cap.read()
+    if not isFrame:
+      break
     key = cv.waitKey(1) & 0xFF
     frame = cv.resize(frame, (320, 320))
 
@@ -141,12 +150,12 @@ def demo_live():
 
       while True:
         key2 = cv.waitKey(1) or 0xff
-        cv.imshow('My Live Demo', frame)
+        cv.imshow('Video Demo', frame)
         if key2 == ord('p'):  # resume
           time_paused += time.time() - start_pause
           break
 
-    cv.imshow('My Live Demo', frame)
+    cv.imshow('Video Demo', frame)
     num_frames += 1
 
     if key == 27:  # exit
@@ -155,7 +164,9 @@ def demo_live():
   elasped = time.time() - start
   print("[INFO] elasped time: {:.2f}s".format(elasped))
   print("[INFO] approx. FPS: {:.2f}".format(num_frames / (elasped-time_paused)))
+  
   cap.release()
+  cv.destroyAllWindows()
 
 if __name__ == '__main__':
   net = MyNet()
@@ -164,8 +175,13 @@ if __name__ == '__main__':
     net.cuda()
   
   if args.live:
-    demo_live()
-    cv.destroyAllWindows()
+    demo_video(0)
+  elif args.video:
+    demo_video(args.video)
+  elif args.image:
+    img = Image.open(args.image, 'r')
+    img = img.resize((320, 320), Image.ANTIALIAS)
+    create_plot(img)
   else:
     img = Image.open('../datasets/train/S1_1/S1_1_0_00001.jpg', 'r')        
     target = h5py.File('../datasets/annot.h5', 'r')["S1"]["annot3_1_0"][0]

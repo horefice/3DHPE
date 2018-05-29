@@ -90,7 +90,7 @@ class Solver(object):
         if log_nth and i % log_nth == 0:
           last_log_nth_losses = self.train_loss_history[-log_nth:]
           train_loss = np.mean(last_log_nth_losses)
-          print('[Iteration {d}/{d}] TRAIN loss: {:.2f}'
+          print('[Iteration {:d}/{:d}] TRAIN loss: {:.2f}'
                 .format(i + epoch * iter_per_epoch,
                   iter_per_epoch * num_epochs,
                   train_loss))
