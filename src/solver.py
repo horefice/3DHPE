@@ -1,12 +1,13 @@
 import numpy as np
+import sys
 import os
 import shutil
 
 import torch
 from torch.autograd import Variable
-from viz import Viz
 from utils import AverageMeter
-import utils as utils
+sys.path.append('../utils/')
+from viz import Viz
 
 class Solver(object):
   default_adam_args = {"lr": 1e-4,
@@ -51,13 +52,12 @@ class Solver(object):
       best_val_acc = checkpoint['best_val_acc']
       optim.load_state_dict(checkpoint['optimizer'])
       self._load_history()
-      print("\n=> Loaded checkpoint (epoch {:d})".format(checkpoint['epoch']))
+      print("=> Loaded checkpoint (epoch {:d})".format(checkpoint['epoch']))
 
     if self.visdom:
       iter_plot = self.visdom.create_plot('Epoch', 'Loss', 'Train Loss',
                                           {'ytype':'log'})
 
-    print('\nSTART TRAINING.')
     ########################################################################
     # The log should like something like:                                  #
     #   ...                                                                #
@@ -130,8 +130,6 @@ class Solver(object):
         'best_val_acc': best_val_acc,
         'optimizer' : optim.state_dict(),
       }, is_best)
-
-    print('FINISH.')
 
   def test(self, model, test_loader, tolerance=0.05):
     """

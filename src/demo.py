@@ -13,7 +13,7 @@ from PIL import Image
 from torchvision import transforms
 from mpl_toolkits.mplot3d import Axes3D
 from torch.autograd import Variable
-from nn import MyNet
+from nn import MyNet, VNect
 
 parser = argparse.ArgumentParser(description='Demo')
 parser.add_argument('--model', type=str, default='../models/model_best.pth',
@@ -24,6 +24,8 @@ parser.add_argument('--video', type=str, default='',
                     help='Use video as input')
 parser.add_argument('--image', type=str, default='',
                     help='Use image as input')
+parser.add_argument('--vnect', action='store_true', default=False,
+                    help='uses VNect-like network')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA')
 args = parser.parse_args()
@@ -169,7 +171,7 @@ def demo_video(video_path=0):
   cv.destroyAllWindows()
 
 if __name__ == '__main__':
-  net = MyNet()
+  net = MyNet() if not args.vnect else VNect()
   net.load_state_dict(torch.load(args.model)['state_dict'])
   if args.cuda:
     net.cuda()
@@ -186,4 +188,3 @@ if __name__ == '__main__':
     img = Image.open('../datasets/train/S1_1/S1_1_0_00001.jpg', 'r')        
     target = h5py.File('../datasets/annot.h5', 'r')["S1"]["annot3_1_0"][0]
     create_plot(img, target)
-

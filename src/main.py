@@ -1,4 +1,3 @@
-# Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -11,7 +10,7 @@ import os
 from nn import MyNet, VNect
 from solver import Solver
 from dataHandler import TrainDataHandler, TestDataHandler
-from utils import Plotter
+import utils
 
 ## SETTINGS
 parser = argparse.ArgumentParser(description='MyNet Implementation')
@@ -44,7 +43,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='N',
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging (default: 10)')
 
-## PREPARE ARGS
+## SETUP
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 args.saveDir = os.path.join('../models/', args.expID)
@@ -63,23 +62,20 @@ if args.cuda:
 if not os.path.exists(args.saveDir):
   os.makedirs(args.saveDir)
 
-args_list = dict((name, getattr(args, name)) for name in dir(args)
-            if not name.startswith('_'))
-file_name = os.path.join(args.saveDir, 'args.txt')
-with open(file_name, 'a') as opt_file:
-  opt_file.write('\n==> Args ('+datetime.datetime.now().isoformat()+'):\n')
-  for k, v in sorted(args_list.items()):
-     opt_file.write('  {}: {}\n'.format(str(k), str(v)))
+utils.writeArgsFile(args,args.saveDir)
 
-## LOAD DATA
+## LOAD DATASETS
+print('\nDATASET INFO.')
+
 train_data = TrainDataHandler('../datasets/train/')
 test_data = TestDataHandler('../datasets/test/')
 
-print('\nDATASET INFO.')
-print('Train & val. size:', len(train_data), 'x', train_data[0][0].size())
-print('Test size:', len(test_data), 'x', test_data[0][0].size())
+print('Train & val. size: {} x {}'.format(len(train_data), train_data[0][0].size()))
+print('Test size: {} x {}'.format(len(test_data), test_data[0][0].size()))
 
 ## LOAD MODEL & SOLVER
+print('\nLOADING NETWORK & SOLVER.')
+
 model = MyNet() if not args.vnect else VNect()
 checkpoint = {}
 if args.model:
@@ -87,11 +83,16 @@ if args.model:
   model.load_state_dict(checkpoint['state_dict'])
 if args.cuda:
   model.cuda()
+
 solver = Solver(optim_args={'lr': args.lr}, saveDir=args.saveDir,
                 vis=args.visdom)
 
+print('LOADED.')
+
 ## TRAIN
 if (not args.model) ^ args.resume:
+  print('\nTRAINING.')
+
   train_sampler, val_sampler = train_data.subdivide_dataset(args.val_size,
                                                            shuffle=True,
                                                            seed=args.seed)
@@ -107,18 +108,15 @@ if (not args.model) ^ args.resume:
   solver.train(model, train_loader, val_loader, log_nth=args.log_interval,
               num_epochs=args.epochs, checkpoint=checkpoint)
 
+  print('FINISH.')
+
 ## TEST
+print('\nTESTING.')
+
 test_loader = torch.utils.data.DataLoader(test_data, 
                                           batch_size=args.test_batch_size,
                                           shuffle=False, **kwargs)
 test_acc, test_loss = solver.test(model, test_loader)
 
-print('\nTESTING.')
 print('Test accuracy: {:.2%}'.format(test_acc))
 print('Test loss: {:.2f}'.format(test_loss))
-
-## PLOT TRAINING
-if args.plot:
-  plotter = Plotter()
-  plotter.load_histories()
-  plotter.plot_histories('(test_acc = {:.2%})'.format(test_acc))

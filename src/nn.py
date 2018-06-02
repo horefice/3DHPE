@@ -120,38 +120,37 @@ class VNect(MyNN):
     self.conv1 = nn.Conv2d(212, 128, 3, stride=1, padding=1)
     self.conv2 = nn.Conv2d(128, 112, 1)
 
-    self.fc1 = nn.Linear(179200, 252)
-    self.fc2 = nn.Linear(252, 84)
+    # self.fc1 = nn.Linear(179200, 252)
+    # self.fc2 = nn.Linear(252, 84)
 
-    #self.init_weights_()
+    # self.init_weights_()
 
-  def init_weights_(self):
-    import pickle
-    model_weights = pickle.load(open('../../vnect.pkl', 'rb'), encoding='latin1')
+  # def init_weights_(self):
+  #   import pickle
+  #   model_weights = pickle.load(open('../../vnect.pkl', 'rb'), encoding='latin1')
     
-    def init_weight(m,branch):
-      m.weight.data.copy_(torch.from_numpy(model_weights[branch+'/weights']).permute(3,2,1,0))
-      m.bias.data.copy_(torch.from_numpy(model_weights[branch+'/biases']))
+  #   def init_weight(m,branch):
+  #     m.weight.data.copy_(torch.from_numpy(model_weights[branch+'/weights']).permute(3,2,1,0))
+  #     m.bias.data.copy_(torch.from_numpy(model_weights[branch+'/biases']))
 
-    def init_weight_transp(m,branch):
-      m.weight.data.copy_(torch.from_numpy(model_weights[branch+'/kernel']).permute(3,2,1,0))
+  #   def init_weight_transp(m,branch):
+  #     m.weight.data.copy_(torch.from_numpy(model_weights[branch+'/kernel']).permute(3,2,1,0))
     
-    def init_weight_lin(m):
-      torch.nn.init.xavier_uniform_(m.weight)
-      m.bias.data.fill_(0.01)
+  #   def init_weight_lin(m):
+  #     torch.nn.init.xavier_uniform_(m.weight)
+  #     m.bias.data.fill_(0.01)
 
-    init_weight(self.res5a.conv1,'res5a_branch2a_new')
-    init_weight(self.res5a.conv2,'res5a_branch2b_new')
-    init_weight(self.res5a.conv3,'res5a_branch2c_new')
-    init_weight(self.res5a.conv4,'res5a_branch1_new')
-    init_weight(self.res5b_1,'res5b_branch2a_new')
-    init_weight(self.res5b_2,'res5b_branch2b_new')
-    init_weight(self.res5b_3,'res5b_branch2c_new')
-    init_weight_transp(self.res5c_1,'res5c_branch1a')
-    init_weight_transp(self.res5c_2,'res5c_branch2a')
-    init_weight_lin(self.fc1)
-    init_weight_lin(self.fc2)
-
+  #   init_weight(self.res5a.conv1,'res5a_branch2a_new')
+  #   init_weight(self.res5a.conv2,'res5a_branch2b_new')
+  #   init_weight(self.res5a.conv3,'res5a_branch2c_new')
+  #   init_weight(self.res5a.conv4,'res5a_branch1_new')
+  #   init_weight(self.res5b_1,'res5b_branch2a_new')
+  #   init_weight(self.res5b_2,'res5b_branch2b_new')
+  #   init_weight(self.res5b_3,'res5b_branch2c_new')
+  #   init_weight_transp(self.res5c_1,'res5c_branch1a')
+  #   init_weight_transp(self.res5c_2,'res5c_branch2a')
+  #   init_weight_lin(self.fc1)
+  #   init_weight_lin(self.fc2)
 
   def forward(self, x):
     out = self.resnet(x) # (1024,w/16,h/16)
@@ -173,9 +172,22 @@ class VNect(MyNN):
     out = self.conv2(out) # (112,w/8,h/8)
     out = out.view(out.size(0),4,out.size(-1),out.size(-2),28)
 
-    out_mod = out.view(out.size(0), -1)
-    out_mod = F.relu(self.fc1(out_mod))
-    out_mod = self.fc2(out_mod)
+    heatmap = out[:,0]
+    map_x = out[:,1]
+    map_y = out[:,2]
+    map_z = out[:,3]
+
+    hm_val,hm_idx = heatmap.max(1)
+    _,hm_idx2 = hm_val.max(1)
+
+    hm_idx1 = torch.zeros_like(hm_idx2)
+    out_mod = torch.zeros(out.size(0),28*3)
+    for j,x in enumerate(hm_idx2):
+      for k,y in enumerate(x):
+        hm_idx1[j,k] = hm_idx[j,y,k]
+        out_mod[j,3*k] = map_x[j,hm_idx1[j,k],hm_idx2[j,k],k]
+        out_mod[j,3*k+1] = map_y[j,hm_idx1[j,k],hm_idx2[j,k],k]
+        out_mod[j,3*k+2] = map_z[j,hm_idx1[j,k],hm_idx2[j,k],k]
 
     return out_mod
 
