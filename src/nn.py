@@ -66,21 +66,6 @@ class MyNet(MyNN):
   """
 
   def __init__(self):
-    """
-    Initialize a new network.
-
-    Inputs:
-    - input_dim: Tuple (C, H, W) giving size of input data.
-    - num_filters: Number of filters to use in the convolutional layer.
-    - filter_size: Size of filters to use in the convolutional layer.
-    - hidden_dim: Number of units to use in the fully-connected hidden layer-
-    - num_classes: Number of scores to produce from the final affine layer.
-    - stride_conv: Stride for the convolution layer.
-    - stride_pool: Stride for the max pooling layer.
-    - weight_scale: Scale for the convolution weights initialization
-    - pool: The size of the max pooling window.
-    - dropout: Probability of an element to be zeroed.
-    """
     super(MyNet, self).__init__()
 
     resnet = models.resnet50(pretrained=True)
@@ -99,7 +84,12 @@ class MyNet(MyNN):
     out = F.relu(self.fc1(out))
     return self.fc2(out)
 
+"""VNect"""
 class VNect(MyNN):
+  """
+  A PyTorch implementation of VNect
+  """
+
   def __init__(self):
     super(VNect, self).__init__()
 
@@ -119,9 +109,6 @@ class VNect(MyNN):
 
     self.conv1 = nn.Conv2d(212, 128, 3, stride=1, padding=1)
     self.conv2 = nn.Conv2d(128, 112, 1)
-
-    # self.fc1 = nn.Linear(179200, 252)
-    # self.fc2 = nn.Linear(252, 84)
 
     # self.init_weights_()
 
@@ -180,14 +167,15 @@ class VNect(MyNN):
     hm_val,hm_idx = heatmap.max(1)
     _,hm_idx2 = hm_val.max(1)
 
-    hm_idx1 = torch.zeros_like(hm_idx2)
     out_mod = torch.zeros(out.size(0),28*3)
+    if self.is_cuda():
+      out_mod = out_mod.cuda()
     for j,x in enumerate(hm_idx2):
       for k,y in enumerate(x):
-        hm_idx1[j,k] = hm_idx[j,y,k]
-        out_mod[j,3*k] = map_x[j,hm_idx1[j,k],hm_idx2[j,k],k]
-        out_mod[j,3*k+1] = map_y[j,hm_idx1[j,k],hm_idx2[j,k],k]
-        out_mod[j,3*k+2] = map_z[j,hm_idx1[j,k],hm_idx2[j,k],k]
+        hm_idx1 = hm_idx[j,y,k]
+        out_mod[j,3*k] = map_x[j,hm_idx1,hm_idx2[j,k],k]
+        out_mod[j,3*k+1] = map_y[j,hm_idx1,hm_idx2[j,k],k]
+        out_mod[j,3*k+2] = map_z[j,hm_idx1,hm_idx2[j,k],k]
 
     return out_mod
 
@@ -199,16 +187,16 @@ class Residual(nn.Module):
     self.numOut = numOut
     self.resConv = resConv
     self.conv1 = nn.Conv2d(self.numIn, int(self.numOut/2), 1)
-    self.bn1 = nn.BatchNorm2d(int(self.numOut/2))
+    #self.bn1 = nn.BatchNorm2d(int(self.numOut/2))
     self.conv2 = nn.Conv2d(int(self.numOut/2), int(self.numOut/2), 3, stride=1, padding=1)
-    self.bn2 = nn.BatchNorm2d(int(self.numOut/2))
+    #self.bn2 = nn.BatchNorm2d(int(self.numOut/2))
     self.conv3 = nn.Conv2d(int(self.numOut/2), self.numOut, 1)
     self.conv4 = nn.Conv2d(self.numIn, self.numOut, 1) 
     
   def forward(self, x):
     residual = x
-    out = F.relu(self.bn1(self.conv1(x)))
-    out = F.relu(self.bn2(self.conv2(out)))
+    out = F.relu(self.conv1(x))
+    out = F.relu(self.conv2(x))
     out = self.conv3(out)
 
     if self.numIn != self.numOut | self.resConv:

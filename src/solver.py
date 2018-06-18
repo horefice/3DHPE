@@ -41,7 +41,8 @@ class Solver(object):
     """
     optim = self.optim(filter(lambda p: p.requires_grad,model.parameters()),
                        **self.optim_args)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim)
+    scheduler = False # torch.optim.lr_scheduler.ReduceLROnPlateau(optim)
+    
     iter_per_epoch = len(train_loader)
     start_epoch = 0
     best_val_acc = 0.0
@@ -103,26 +104,28 @@ class Solver(object):
 
       if log_nth:
         print('[Epoch {:d}/{:d}] TRAIN   loss: {:.2f}'.format(epoch + 1,
-                                                   num_epochs,
-                                                   train_loss))
+                                                              num_epochs,
+                                                              train_loss))
 
       # VALIDATION
       if len(val_loader):
         val_acc, val_loss = self.test(model, val_loader)
         self.val_acc_history.append(val_acc)
         self.val_loss_history.append(val_loss)
-        if log_nth:
-          print('[Epoch {:d}/{:d}] VAL acc/loss: {:.2%}/{:.2f}'.format(epoch + 1,
-                                                            num_epochs,
-                                                            val_acc,
-                                                            val_loss))
 
-        # Reduce LR progressively
-        scheduler.step(val_acc)
-
-        # Update best model to the one with highest validation set accuracy
+        # Set best model to the one with highest validation set accuracy
         is_best = val_acc >= best_val_acc
         best_val_acc = max(val_acc,best_val_acc)
+
+        # Reduce LR progressively
+        if scheduler:
+          scheduler.step(val_acc)
+
+        if log_nth:
+          print('[Epoch {:d}/{:d}] VAL acc/loss: {:.2%}/{:.2f}'.format(epoch + 1,
+                                                                      num_epochs,
+                                                                      val_acc,
+                                                                      val_loss))
       
       self._save_checkpoint({
         'epoch': epoch + 1,

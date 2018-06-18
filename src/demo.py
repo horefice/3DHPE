@@ -73,15 +73,15 @@ def rescale(x):
   return int((x+1024)*320/2048)
 
 def draw_skeleton_plot(plot, target):
+  for part in MIN_BODY_PARTS:
+    i = BODY_PARTS.index(part)*3
+    plot.plot([target[i]],[target[i+1]],[target[i+2]], 'o')
   for pose in POSE_PAIRS:
     i1 = BODY_PARTS.index(pose[0])*3
     i2 = BODY_PARTS.index(pose[1])*3
     plot.plot([target[i1],target[i2]],
-        [target[i1+1],target[i2+1]],
-        [target[i1+2],target[i2+2]], 'g')
-  for part in MIN_BODY_PARTS:
-    i = BODY_PARTS.index(part)*3
-    plot.plot([target[i]],[target[i+1]],[target[i+2]], 'o')
+              [target[i1+1],target[i2+1]],
+              [target[i1+2],target[i2+2]], 'g')
 
   plot.set_xlabel('X')
   plot.set_ylabel('Y')
@@ -114,9 +114,9 @@ def draw_skeleton_live(frame, y):
     i = BODY_PARTS.index(part)*3
     point = (rescale(y[i]),rescale(y[i+1]))
     cv.ellipse(frame, point, (3, 3), 0, 0, 360, (0,0,255), cv.FILLED)
-  for pair in POSE_PAIRS:
-    idFrom = BODY_PARTS.index(pair[0])*3
-    idTo = BODY_PARTS.index(pair[1])*3
+  for pose in POSE_PAIRS:
+    idFrom = BODY_PARTS.index(pose[0])*3
+    idTo = BODY_PARTS.index(pose[1])*3
     pointFrom = (rescale(y[idFrom]),rescale(y[idFrom+1]))
     pointTo = (rescale(y[idTo]),rescale(y[idTo+1]))
     cv.line(frame, pointFrom, pointTo, (0, 255, 0), 1)
